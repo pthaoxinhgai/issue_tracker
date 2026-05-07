@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { issueService } from '../api/issueService';
-import { MessageSquare, User, Clock } from 'lucide-react';
+import { userService } from '../api/userService';
+import { MessageSquare, User, Clock, Check, ArrowLeft } from 'lucide-react';
 
 const IssueDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [issue, setIssue] = useState(null);
   const [comments, setComments] = useState([]);
+  const [users, setUsers] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -16,12 +19,14 @@ const IssueDetail = () => {
 
   const fetchData = async () => {
     try {
-      const [issueData, commentsData] = await Promise.all([
+      const [issueData, commentsData, usersData] = await Promise.all([
         issueService.getById(id),
-        issueService.getComments(id)
+        issueService.getComments(id),
+        userService.getAll()
       ]);
       setIssue(issueData);
       setComments(commentsData);
+      setUsers(usersData);
     } catch (error) {
       console.error('Failed to fetch data', error);
     } finally {
@@ -38,6 +43,17 @@ const IssueDetail = () => {
       setNewComment('');
     } catch (error) {
       console.error('Failed to add comment', error);
+    }
+  };
+
+  const handleAssign = async (e) => {
+    const userId = e.target.value;
+    if (!userId) return;
+    try {
+      const updatedIssue = await issueService.assign(id, userId);
+      setIssue(updatedIssue);
+    } catch (error) {
+      console.error('Failed to assign issue', error);
     }
   };
 
@@ -66,10 +82,19 @@ const IssueDetail = () => {
         </div>
         
         <div className="border-t border-slate-700 pt-4 flex justify-between items-center text-sm">
-           <div className="text-slate-400">
-             Assignee: <span className="text-white font-medium">{issue.assignee?.name || 'Unassigned'}</span>
+           <div className="text-slate-400 flex items-center gap-2">
+             Assignee: 
+             <select 
+                value={issue.assignee?.id || ''} 
+                onChange={handleAssign}
+                className="bg-slate-800 border border-slate-700 text-white text-sm rounded focus:ring-primary focus:border-primary block p-1"
+             >
+                <option value="" disabled>Unassigned</option>
+                {users.map(user => (
+                   <option key={user.id} value={user.id}>{user.name}</option>
+                ))}
+             </select>
            </div>
-           {/* Future: Add Assign button here */}
         </div>
       </div>
 

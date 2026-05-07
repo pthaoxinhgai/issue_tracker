@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, KanbanSquare, LogOut } from 'lucide-react';
 
 // Placeholder imports
@@ -16,6 +16,7 @@ const PrivateRoute = ({ children }) => {
 
 const Layout = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = JSON.parse(localStorage.getItem('user'));
 
   const handleLogout = () => {
@@ -23,40 +24,61 @@ const Layout = ({ children }) => {
     navigate('/login');
   };
 
+  const navItems = [
+    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Kanban Board', path: '/kanban', icon: KanbanSquare }
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
+    <div className="min-h-screen flex flex-col md:flex-row bg-background">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-surface border-r border-slate-700 hidden md:flex flex-col">
-        <div className="p-4 border-b border-slate-700">
-          <h1 className="text-xl font-bold text-primary flex items-center gap-2">
-            <KanbanSquare /> Issue Tracker
+      <aside className="w-full md:w-60 bg-[#1c2128] border-r border-border hidden md:flex flex-col">
+        <div className="p-5">
+          <h1 className="text-lg font-bold text-primary flex items-center gap-2">
+            <span className="w-6 h-6 bg-primary rounded flex items-center justify-center text-background">I</span>
+            Issue Tracker
           </h1>
         </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <Link to="/" className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 transition-colors">
-            <LayoutDashboard size={18} /> Dashboard
-          </Link>
-          <Link to="/kanban" className="flex items-center gap-2 p-2 rounded hover:bg-slate-700 transition-colors">
-            <KanbanSquare size={18} /> Kanban Board
-          </Link>
+        <nav className="flex-1 px-3 space-y-1">
+          {navItems.map(item => (
+            <Link 
+              key={item.path}
+              to={item.path} 
+              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all ${
+                location.pathname === item.path 
+                ? 'bg-[#313d4a] text-white font-medium' 
+                : 'text-[#adbac7] hover:bg-[#22272e] hover:text-white'
+              }`}
+            >
+              <item.icon size={16} className={location.pathname === item.path ? 'text-primary' : 'text-slate-500'} />
+              {item.name}
+            </Link>
+          ))}
         </nav>
-        <div className="p-4 border-t border-slate-700 text-sm flex items-center justify-between">
-          <span>{user?.name}</span>
-          <button onClick={handleLogout} className="text-red-400 hover:text-red-300">
-            <LogOut size={18} />
+        <div className="p-4 border-t border-border flex items-center justify-between group">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white">
+              {user?.name?.charAt(0)}
+            </div>
+            <span className="text-sm font-medium text-[#adbac7] truncate max-w-[100px]">{user?.name}</span>
+          </div>
+          <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-red-400/10 transition-all">
+            <LogOut size={16} />
           </button>
         </div>
       </aside>
 
       {/* Mobile Nav */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-surface border-b border-slate-700">
-         <h1 className="text-xl font-bold text-primary">Issue Tracker</h1>
-         <button onClick={handleLogout} className="text-red-400"><LogOut size={18} /></button>
+      <div className="md:hidden flex items-center justify-between p-4 bg-[#1c2128] border-b border-border">
+         <h1 className="text-lg font-bold text-primary">Issue Tracker</h1>
+         <button onClick={handleLogout} className="text-slate-500"><LogOut size={18} /></button>
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 overflow-auto">
-        {children}
+      <main className="flex-1 p-4 md:p-6 overflow-auto">
+        <div className="max-w-[1600px] mx-auto">
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -8,11 +8,13 @@ import com.issuetracker.backend.repository.IssueRepository;
 import com.issuetracker.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class IssueService {
 
@@ -53,10 +55,18 @@ public class IssueService {
         Issue issue = issueRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Issue not found"));
 
-        issue.setTitle(dto.getTitle());
-        issue.setDescription(dto.getDescription());
-        issue.setType(dto.getType());
-        issue.setPriority(dto.getPriority());
+        if (dto.getTitle() != null) {
+            issue.setTitle(dto.getTitle());
+        }
+        if (dto.getDescription() != null) {
+            issue.setDescription(dto.getDescription());
+        }
+        if (dto.getType() != null) {
+            issue.setType(dto.getType());
+        }
+        if (dto.getPriority() != null) {
+            issue.setPriority(dto.getPriority());
+        }
         
         if (dto.getStatus() != null && dto.getStatus() != issue.getStatus()) {
             validateStatusTransition(issue.getStatus(), dto.getStatus());
@@ -93,8 +103,8 @@ public class IssueService {
             // Allow going back to IN_PROGRESS from REVIEW
             throw new RuntimeException("Can only transition from REVIEW to DONE or back to IN_PROGRESS");
         }
-        if (current == IssueStatus.DONE) {
-            throw new RuntimeException("Issue is DONE and cannot be changed");
+        if (current == IssueStatus.DONE && next != IssueStatus.TODO) {
+            throw new RuntimeException("Done issues can only be reopened to TODO");
         }
     }
 
