@@ -1,8 +1,8 @@
 package com.issuetracker.backend.controller;
 
-import com.issuetracker.backend.dto.AuthRequest;
-import com.issuetracker.backend.dto.AuthResponse;
-import com.issuetracker.backend.dto.RegisterRequest;
+import com.issuetracker.backend.dto.request.AuthRequest;
+import com.issuetracker.backend.dto.response.AuthResponse;
+import com.issuetracker.backend.dto.request.RegisterRequest;
 import com.issuetracker.backend.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

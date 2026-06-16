@@ -9,6 +9,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "issues")
@@ -29,15 +31,15 @@ public class Issue {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "VARCHAR(255)")
     private IssueType type;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "VARCHAR(255)")
     private IssueStatus status;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "VARCHAR(255)")
     private Priority priority;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -45,8 +47,18 @@ public class Issue {
     private User assignee;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reporter_id")
-    private User reporter;
+    @JoinColumn(name = "creator_id")
+    private User creator;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "problem_report_id", nullable = false)
+    private ProblemReport problemReport;
+
+    @ElementCollection
+    @CollectionTable(name = "issue_labels", joinColumns = @JoinColumn(name = "issue_id"))
+    @Column(name = "label")
+    @Builder.Default
+    private Set<String> labels = new HashSet<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

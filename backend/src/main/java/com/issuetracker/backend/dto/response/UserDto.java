@@ -1,4 +1,4 @@
-package com.issuetracker.backend.dto;
+package com.issuetracker.backend.dto.response;
 
 import com.issuetracker.backend.domain.enums.Role;
 import lombok.Builder;

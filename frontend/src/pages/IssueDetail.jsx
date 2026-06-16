@@ -67,7 +67,7 @@ const IssueDetail = () => {
           <div>
             <h2 className="text-3xl font-bold mb-2">{issue.title}</h2>
             <div className="flex gap-4 text-sm text-slate-400 items-center">
-              <span className="flex items-center gap-1"><User size={14}/> {issue.reporter?.name}</span>
+              <span className="flex items-center gap-1"><User size={14}/> {issue.creator?.name || issue.creator?.email}</span>
               <span className="flex items-center gap-1"><Clock size={14}/> {new Date(issue.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
@@ -90,8 +90,10 @@ const IssueDetail = () => {
                 className="bg-slate-800 border border-slate-700 text-white text-sm rounded focus:ring-primary focus:border-primary block p-1"
              >
                 <option value="" disabled>Unassigned</option>
-                {users.map(user => (
-                   <option key={user.id} value={user.id}>{user.name}</option>
+                {users
+                    .filter(user => user.role === 'DEVELOPER' || user.role === 'MAINTAINER')
+                    .map(user => (
+                   <option key={user.id} value={user.id}>{user.name} ({user.role})</option>
                 ))}
              </select>
            </div>

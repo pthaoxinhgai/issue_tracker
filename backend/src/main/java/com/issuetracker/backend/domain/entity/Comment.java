@@ -19,8 +19,12 @@ public class Comment {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "issue_id", nullable = false)
+    @JoinColumn(name = "issue_id", nullable = true)
     private Issue issue;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "problem_report_id", nullable = true)
+    private ProblemReport problemReport;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

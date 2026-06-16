@@ -1,4 +1,4 @@
-package com.issuetracker.backend.dto;
+package com.issuetracker.backend.dto.request;
 
 import lombok.Data;
 
