@@ -90,7 +90,9 @@ const IssueDetail = () => {
           </div>
           <div className="flex flex-col gap-2 items-end">
              <span className="bg-slate-700 px-3 py-1 rounded text-sm font-medium">{issue.status.replace('_', ' ')}</span>
-             <span className="text-xs font-bold text-slate-400">{issue.type} | {issue.priority}</span>
+             <span className="text-xs font-bold text-slate-400">
+                {issue.type} | Priority: {issue.priority} | Severity: {issue.severity || 'NONE'} | Project: {issue.project?.name || 'Default'}
+             </span>
           </div>
         </div>
         

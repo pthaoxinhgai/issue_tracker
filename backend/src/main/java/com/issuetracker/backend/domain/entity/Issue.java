@@ -3,6 +3,7 @@ package com.issuetracker.backend.domain.entity;
 import com.issuetracker.backend.domain.enums.IssueStatus;
 import com.issuetracker.backend.domain.enums.IssueType;
 import com.issuetracker.backend.domain.enums.Priority;
+import com.issuetracker.backend.domain.enums.Severity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -41,6 +42,14 @@ public class Issue {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "VARCHAR(255)")
     private Priority priority;
+
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(255)")
+    private Severity severity;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")

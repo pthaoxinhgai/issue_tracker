@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { reportService } from '../services/report.service';
+import { projectService } from '../services/project.service';
 import { useAuth } from '../context/AuthContext';
 import { MessageSquare, User, Clock, ArrowLeft, Loader2, Play } from 'lucide-react';
 
@@ -21,8 +22,11 @@ export const ReportDetail = () => {
         title: '',
         description: '',
         type: 'TASK',
-        priority: 'MEDIUM'
+        priority: 'MEDIUM',
+        severity: 'MINOR',
+        projectId: ''
     });
+    const [projects, setProjects] = useState([]);
 
     useEffect(() => {
         fetchData();
@@ -31,20 +35,23 @@ export const ReportDetail = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [reportData, commentsData, activitiesData] = await Promise.all([
+            const [reportData, commentsData, activitiesData, projectsData] = await Promise.all([
                 reportService.getReportById(id),
                 reportService.getComments(id),
-                reportService.getActivities(id)
+                reportService.getActivities(id),
+                projectService.getAll()
             ]);
             setReport(reportData);
             setComments(commentsData);
             setActivities(activitiesData);
+            setProjects(projectsData);
             
             // Pre-fill issue data
             setIssueData(prev => ({
                 ...prev,
                 title: `[From Report #${reportData.id}] ${reportData.title}`,
-                description: reportData.description
+                description: reportData.description,
+                projectId: projectsData.length > 0 ? projectsData[0].id : ''
             }));
         } catch (error) {
             console.error('Failed to fetch report data', error);
@@ -202,6 +209,33 @@ export const ReportDetail = () => {
                                     <option value="MEDIUM">Medium</option>
                                     <option value="HIGH">High</option>
                                     <option value="CRITICAL">Critical</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-blue-900 mb-1">Severity</label>
+                                <select
+                                    value={issueData.severity}
+                                    onChange={(e) => setIssueData({...issueData, severity: e.target.value})}
+                                    className="input-field bg-white"
+                                >
+                                    <option value="TRIVIAL">Trivial</option>
+                                    <option value="MINOR">Minor</option>
+                                    <option value="MAJOR">Major</option>
+                                    <option value="CRITICAL">Critical</option>
+                                    <option value="BLOCKER">Blocker</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-blue-900 mb-1">Project</label>
+                                <select
+                                    value={issueData.projectId}
+                                    onChange={(e) => setIssueData({...issueData, projectId: e.target.value})}
+                                    className="input-field bg-white"
+                                    required
+                                >
+                                    {projects.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>

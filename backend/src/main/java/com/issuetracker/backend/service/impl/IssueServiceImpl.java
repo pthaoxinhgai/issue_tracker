@@ -32,6 +32,26 @@ public class IssueServiceImpl implements IssueService {
     private final ActivityLogService activityLogService;
     private final com.issuetracker.backend.repository.ProblemReportRepository problemReportRepository;
     private final com.issuetracker.backend.service.NotificationService notificationService;
+    private final com.issuetracker.backend.repository.ProjectRepository projectRepository;
+
+    @jakarta.annotation.PostConstruct
+    public void initDefaultProject() {
+        if (projectRepository.count() == 0) {
+            com.issuetracker.backend.domain.entity.Project defaultProject = com.issuetracker.backend.domain.entity.Project.builder()
+                    .name("Default Project")
+                    .description("Auto-generated default project")
+                    .build();
+            defaultProject = projectRepository.save(defaultProject);
+            
+            List<Issue> issues = issueRepository.findAll();
+            for (Issue issue : issues) {
+                if (issue.getProject() == null) {
+                    issue.setProject(defaultProject);
+                    issueRepository.save(issue);
+                }
+            }
+        }
+    }
 
     public List<IssueDto> getAllIssues() {
         return issueRepository.findAll().stream()
@@ -58,12 +78,26 @@ public class IssueServiceImpl implements IssueService {
                 problemReportRepository.findById(dto.getProblemReportId())
                 .orElseThrow(() -> new RuntimeException("Problem Report not found"));
 
+        com.issuetracker.backend.domain.entity.Project issueProject = null;
+        if (dto.getProjectId() != null) {
+            issueProject = projectRepository.findById(dto.getProjectId())
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+        } else if (dto.getProject() != null && dto.getProject().getId() != null) {
+            issueProject = projectRepository.findById(dto.getProject().getId())
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+        } else {
+            // fallback to default project
+            issueProject = projectRepository.findByName("Default Project").orElse(null);
+        }
+
         Issue issue = Issue.builder()
                 .title(dto.getTitle())
                 .description(dto.getDescription())
                 .type(dto.getType())
                 .status(IssueStatus.OPEN)
                 .priority(dto.getPriority())
+                .severity(dto.getSeverity())
+                .project(issueProject)
                 .creator(creator)
                 .problemReport(report)
                 .labels(dto.getLabels() != null ? dto.getLabels() : new java.util.HashSet<>())
@@ -94,6 +128,21 @@ public class IssueServiceImpl implements IssueService {
         if (dto.getPriority() != null && dto.getPriority() != issue.getPriority()) {
             activityLogService.logActivity(issue, currentUser, ActivityAction.PRIORITY_CHANGE, issue.getPriority().name(), dto.getPriority().name());
             issue.setPriority(dto.getPriority());
+        }
+        if (dto.getSeverity() != null && dto.getSeverity() != issue.getSeverity()) {
+            activityLogService.logActivity(issue, currentUser, ActivityAction.ISSUE_UPDATE, 
+                issue.getSeverity() != null ? issue.getSeverity().name() : "NONE", dto.getSeverity().name());
+            issue.setSeverity(dto.getSeverity());
+        }
+        
+        if (dto.getProjectId() != null && (issue.getProject() == null || !dto.getProjectId().equals(issue.getProject().getId()))) {
+            com.issuetracker.backend.domain.entity.Project newProject = projectRepository.findById(dto.getProjectId())
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+            issue.setProject(newProject);
+        } else if (dto.getProject() != null && dto.getProject().getId() != null && (issue.getProject() == null || !dto.getProject().getId().equals(issue.getProject().getId()))) {
+            com.issuetracker.backend.domain.entity.Project newProject = projectRepository.findById(dto.getProject().getId())
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+            issue.setProject(newProject);
         }
         
         if (dto.getStatus() != null && dto.getStatus() != issue.getStatus()) {
@@ -185,6 +234,11 @@ public class IssueServiceImpl implements IssueService {
                 .type(issue.getType())
                 .status(issue.getStatus())
                 .priority(issue.getPriority())
+                .severity(issue.getSeverity())
+                .project(issue.getProject() != null ? com.issuetracker.backend.dto.response.ProjectDto.builder()
+                        .id(issue.getProject().getId())
+                        .name(issue.getProject().getName())
+                        .build() : null)
                 .labels(issue.getLabels())
                 .assignee(userService.mapToDto(issue.getAssignee()))
                 .creator(userService.mapToDto(issue.getCreator()))
