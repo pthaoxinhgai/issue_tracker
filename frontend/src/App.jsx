@@ -11,6 +11,7 @@ import { Reports } from './pages/Reports';
 import { CreateReport } from './pages/CreateReport';
 import { ReportDetail } from './pages/ReportDetail';
 import { UserManagement } from './pages/UserManagement';
+import { ImportPage } from './pages/ImportPage';
 import './index.css';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/reports/new" element={<CreateReport />} />
                 <Route path="/reports/:id" element={<ReportDetail />} />
+                <Route path="/import" element={<ImportPage />} />
                 <Route path="/users" element={<UserManagement />} />
               </Route>
               

@@ -1,0 +1,7 @@
+title,description,type,priority,labels
+Login issue,Cannot login with Google account,BUG,HIGH,"auth, login"
+Add export button,Need a PDF export button on Dashboard,FEATURE_REQUEST,MEDIUM,"ui, dashboard"
+Fix SLA calculation,SLA for URGENT issues is wrong,TASK,HIGH,backend
+Kanban tutorial,Write documentation for new hires,QUESTION,LOW,docs
+System slow at 9AM,Many users reported lag this morning,INCIDENT,URGENT,performance
+,,TASK,LOW,

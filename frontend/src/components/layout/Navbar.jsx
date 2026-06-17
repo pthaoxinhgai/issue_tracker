@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, Kanban, PlusSquare, LogOut, Hexagon, Users, Bell } from 'lucide-react';
+import { LayoutDashboard, Kanban, PlusSquare, LogOut, Hexagon, Users, Bell, Upload } from 'lucide-react';
 import { getMyNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../../services/notification.service';
 
 export const Navbar = () => {
@@ -82,6 +82,12 @@ export const Navbar = () => {
                                     <Link to="/reports" className={navLinkClass('/reports')}>
                                         <PlusSquare className="h-4 w-4" />
                                         Reports
+                                    </Link>
+                                )}
+                                {(user.role === 'SUPPORT_STAFF' || user.role === 'ADMIN' || user.role === 'MAINTAINER') && (
+                                    <Link to="/import" className={navLinkClass('/import')}>
+                                        <Upload className="h-4 w-4" />
+                                        Import
                                     </Link>
                                 )}
                                 {(user.role === 'DEVELOPER' || user.role === 'MAINTAINER') && (
