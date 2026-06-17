@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { issueService } from '../api/issueService';
 import { userService } from '../api/userService';
-import { MessageSquare, User, Clock, Check, ArrowLeft } from 'lucide-react';
+import { getAttachments, uploadAttachment } from '../services/attachment.service';
+import { MessageSquare, User, Clock, Check, ArrowLeft, Paperclip, Download, Upload as UploadIcon } from 'lucide-react';
 
 const IssueDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [issue, setIssue] = useState(null);
   const [comments, setComments] = useState([]);
+  const [attachments, setAttachments] = useState([]);
   const [users, setUsers] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
@@ -19,14 +21,16 @@ const IssueDetail = () => {
 
   const fetchData = async () => {
     try {
-      const [issueData, commentsData, usersData] = await Promise.all([
+      const [issueData, commentsData, usersData, attachmentsData] = await Promise.all([
         issueService.getById(id),
         issueService.getComments(id),
-        userService.getAll()
+        userService.getAll(),
+        getAttachments(id)
       ]);
       setIssue(issueData);
       setComments(commentsData);
       setUsers(usersData);
+      setAttachments(attachmentsData);
     } catch (error) {
       console.error('Failed to fetch data', error);
     } finally {
@@ -54,6 +58,19 @@ const IssueDetail = () => {
       setIssue(updatedIssue);
     } catch (error) {
       console.error('Failed to assign issue', error);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      await uploadAttachment(id, file);
+      const attachmentsData = await getAttachments(id);
+      setAttachments(attachmentsData);
+    } catch (error) {
+      console.error('Failed to upload', error);
+      alert('Failed to upload file');
     }
   };
 
@@ -98,6 +115,55 @@ const IssueDetail = () => {
              </select>
            </div>
         </div>
+      </div>
+
+      {/* Attachments Section */}
+      <div className="bg-surface p-6 rounded-xl border border-slate-700 shadow-xl">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold flex items-center gap-2">
+            <Paperclip size={20} /> Attachments ({attachments.length})
+          </h3>
+          <div>
+            <input 
+                type="file" 
+                id="file-upload" 
+                className="hidden" 
+                onChange={handleFileUpload}
+            />
+            <label htmlFor="file-upload" className="btn-primary text-sm px-4 py-2 cursor-pointer flex items-center gap-2">
+                <UploadIcon size={16} /> Attach File
+            </label>
+          </div>
+        </div>
+        
+        {attachments.length === 0 ? (
+          <p className="text-slate-500 text-sm italic">No attachments yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {attachments.map(att => (
+              <div key={att.id} className="flex items-center justify-between p-4 bg-slate-800 border border-slate-700 rounded-lg hover:border-slate-500 transition-colors">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="bg-primary/20 p-2 rounded text-primary shrink-0">
+                    <Paperclip size={20} />
+                  </div>
+                  <div className="truncate">
+                    <p className="text-sm font-semibold text-slate-200 truncate" title={att.fileName}>{att.fileName}</p>
+                    <p className="text-xs text-slate-400">{new Date(att.createdAt).toLocaleDateString()} by {att.uploadedBy.name}</p>
+                  </div>
+                </div>
+                <a 
+                  href={`http://localhost:8080${att.fileUrl}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="p-2 text-slate-400 hover:text-primary transition-colors shrink-0"
+                  title="Download/View"
+                >
+                  <Download size={20} />
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Comments Section */}

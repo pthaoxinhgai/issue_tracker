@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { getIssueById, getComments, getActivities, addComment, deleteIssue, assignIssue } from '../../services/issue.service';
+import { getAttachments, uploadAttachment } from '../../services/attachment.service';
 import { getAllUsers } from '../../services/user.service';
 import { useAuth } from '../../context/AuthContext';
-import { X, Trash2, Send, Clock, Activity, MessageSquare } from 'lucide-react';
+import { X, Trash2, Send, Clock, Activity, MessageSquare, Paperclip, Download, Upload as UploadIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const IssueDetailModal = ({ issueId, onClose }) => {
     const [issue, setIssue] = useState(null);
     const [comments, setComments] = useState([]);
     const [activities, setActivities] = useState([]);
+    const [attachments, setAttachments] = useState([]);
     const [users, setUsers] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [loading, setLoading] = useState(true);
@@ -22,14 +24,16 @@ export const IssueDetailModal = ({ issueId, onClose }) => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [issueData, commentsData, activitiesData] = await Promise.all([
+            const [issueData, commentsData, activitiesData, attachmentsData] = await Promise.all([
                 getIssueById(issueId),
                 getComments(issueId),
-                getActivities(issueId)
+                getActivities(issueId),
+                getAttachments(issueId)
             ]);
             setIssue(issueData);
             setComments(commentsData);
             setActivities(activitiesData);
+            setAttachments(attachmentsData);
             
             if (hasRole(['MAINTAINER'])) {
                 const usersData = await getAllUsers();
@@ -73,6 +77,19 @@ export const IssueDetailModal = ({ issueId, onClose }) => {
             fetchData();
         } catch (error) {
             console.error('Failed to assign', error);
+        }
+    };
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            await uploadAttachment(issueId, file);
+            const attachmentsData = await getAttachments(issueId);
+            setAttachments(attachmentsData);
+        } catch (error) {
+            console.error('Failed to upload', error);
+            alert('Failed to upload file');
         }
     };
 
@@ -139,6 +156,58 @@ export const IssueDetailModal = ({ issueId, onClose }) => {
                                 <span className="text-sm text-gray-900">{issue.assignee?.name || 'Unassigned'}</span>
                             )}
                         </div>
+                    </div>
+
+                    {/* Attachments */}
+                    <div className="border-b border-gray-100 pb-4">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                <Paperclip className="h-4 w-4 text-gray-500" />
+                                Attachments
+                            </h3>
+                            {hasRole(['REPORTER', 'DEVELOPER', 'MAINTAINER']) && (
+                                <div>
+                                    <input 
+                                        type="file" 
+                                        id="file-upload" 
+                                        className="hidden" 
+                                        onChange={handleFileUpload}
+                                    />
+                                    <label htmlFor="file-upload" className="btn-primary text-xs px-3 py-1.5 cursor-pointer flex items-center gap-1">
+                                        <UploadIcon size={14} /> Attach File
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {attachments.length === 0 ? (
+                            <p className="text-sm text-gray-500 italic">No attachments yet.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {attachments.map(att => (
+                                    <div key={att.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="bg-primary/10 p-2 rounded text-primary">
+                                                <Paperclip size={16} />
+                                            </div>
+                                            <div className="truncate">
+                                                <p className="text-sm font-medium text-gray-900 truncate" title={att.fileName}>{att.fileName}</p>
+                                                <p className="text-xs text-gray-500">{new Date(att.createdAt).toLocaleDateString()} by {att.uploadedBy.name}</p>
+                                            </div>
+                                        </div>
+                                        <a 
+                                            href={`http://localhost:8080${att.fileUrl}`} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                                            title="Download/View"
+                                        >
+                                            <Download size={16} />
+                                        </a>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Tabs area for Comments / Activity */}

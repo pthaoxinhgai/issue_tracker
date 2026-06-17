@@ -1,0 +1,15 @@
+2026-06-17 14:30:15.123 [http-nio-8080-exec-4] ERROR c.i.b.controller.AttachmentController - Failed to upload file
+java.lang.NullPointerException: Cannot invoke "String.length()" because "fileName" is null
+	at com.issuetracker.backend.service.impl.AttachmentServiceImpl.uploadAttachment(AttachmentServiceImpl.java:55)
+	at com.issuetracker.backend.controller.AttachmentController.uploadAttachment(AttachmentController.java:32)
+	at jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:568)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:118)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:884)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:797)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1081)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:974)
+2026-06-17 14:30:15.150 [http-nio-8080-exec-4] WARN  o.s.w.s.m.s.DefaultHandlerExceptionResolver - Resolved [java.lang.NullPointerException: Cannot invoke "String.length()" because "fileName" is null]
