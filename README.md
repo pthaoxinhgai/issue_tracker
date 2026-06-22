@@ -1,75 +1,77 @@
-# Problem Lifecycle Management System
+# Enterprise Issue Tracker
 
-A full-stack, enterprise-grade Problem Lifecycle Management System designed to systematically bridge the gap between problem reporting and developer task execution.
+## System Overview
+The Enterprise Issue Tracker is a comprehensive, full-stack application designed to manage, track, and resolve software issues and customer tickets. It bridges the gap between Support, Product, Engineering, and QA teams through a strict state machine workflow, ensuring that no issue is lost or delayed.
 
-## 🚀 System Analysis & Workflow
+The system is built with a robust Role-Based Access Control (RBAC) model, automated Service Level Agreement (SLA) monitoring, and a full audit trail for enterprise accountability.
 
-This system goes beyond a basic Issue Tracker by modeling the complete lifecycle of a problem from its inception to its resolution using a rigorous **Problem Report $\rightarrow$ Issue** pipeline.
+## Core Features
 
-### Core Architecture
-The system fundamentally separates **Reports** (what the user experiences) from **Issues** (how the engineering team solves it).
-1. **ProblemReport Module**: Acts as the single source of truth for incoming problems. 
-2. **Issue Module**: Derivative, actionable engineering tasks linked to a `ProblemReport`.
-3. **Polymorphic Interactions**: Both `Comments` and `ActivityLogs` are polymorphically attached to both Reports and Issues, ensuring a seamless audit trail across the entire lifecycle.
-4. **Real-time Notifications**: Developers are immediately notified via a notification bell when they are assigned new issues.
+1. Role-Based Access Control (RBAC)
+   - Granular permissions based on user roles: ADMIN, PRODUCT_OWNER, ENGINEERING_MANAGER, DEVELOPER, QA, SUPPORT_STAFF, and REPORTER.
+   - Restricts state transitions and data visibility based on the user's role.
 
-### Role-Based Access Control (RBAC)
+2. Strict State Machine Workflow
+   - Issues must follow a predefined lifecycle: NEW -> TRIAGED -> ESCALATED -> ASSIGNED -> IN_PROGRESS -> READY_FOR_QA -> RESOLVED -> CLOSED.
+   - Prevents invalid transitions and enforces business logic (e.g., only QA can move an issue to CLOSED).
 
-The system enforces strict access boundaries across three distinct roles:
+3. SLA Monitoring and Proactive Warnings
+   - Automatically calculates deadlines based on issue Severity (Critical = 2H, High = 8H, Medium = 24H, Low = 48H).
+   - Background cron jobs continuously monitor active issues and trigger proactive warnings or breach alerts.
 
-- **`REPORTER`**: The initiator. Can submit new Problem Reports, view their own reports, and communicate via comments. They *cannot* access the internal Kanban board or Issue lists.
-- **`MAINTAINER`**: The triager and manager. Has full visibility. They review incoming Problem Reports, classify or reject them, spawn actionable `Issues` from valid reports, assign them to Developers, and oversee the Kanban board.
-- **`DEVELOPER`**: The executor. Focuses exclusively on the engineering side. They have access to the Kanban board, can be assigned to `Issues`, and are responsible for moving tasks from `OPEN` $\rightarrow$ `IN_PROGRESS` $\rightarrow$ `REVIEW` $\rightarrow$ `DONE`.
+4. Intake and Triage Center
+   - Support for bulk importing issues via CSV/Excel.
+   - Triage capabilities to classify problems, assign priority, and set severity before escalating to engineering teams.
 
-### The Problem Lifecycle
+5. Escalation Management
+   - Formal escalation workflows to pass critical support tickets to Product Owners or Engineering Managers.
+   - Includes mandatory impact assessments and evidence collection.
 
-1. **Submission**: A `REPORTER` submits a Problem Report (Status: `NEW`).
-2. **Triage**: A `MAINTAINER` reviews the report (Status shifts to `UNDER_REVIEW`).
-3. **Classification**: The `MAINTAINER` either marks the report as `REJECTED` or `CLASSIFIED`.
-4. **Issue Spawning**: If `CLASSIFIED`, the `MAINTAINER` spawns one or multiple `Issues` from the report and assigns them to `DEVELOPER`s.
-5. **Execution**: `DEVELOPER`s work on the Issues via the Kanban board (Status: `OPEN` $\rightarrow$ `DONE`).
-6. **Resolution**: Once all derivative Issues are completed, the original Problem Report is marked as `RESOLVED`.
+6. Kanban Board
+   - Visual drag-and-drop board mapping to the 8 system states.
+   - Real-time filtering by Priority, Type, and a quick "Only My Issues" toggle.
+   - Enforced backend validation to prevent unauthorized drag-and-drop actions.
 
-## 🛠️ Technology Stack
+7. Analytics Command Center (Dashboard)
+   - High-level overview of system health.
+   - Real-time metrics including Total Active Issues, Unassigned tickets, SLA Breaches, and status distributions.
+   - Proactive SLA Watch section highlighting issues approaching their deadline.
 
-**Frontend**
-- React 19 + Vite
-- Tailwind CSS v4
-- React Router DOM
-- Axios + Lucide React (Icons)
-- @hello-pangea/dnd (Drag and drop Kanban)
+8. Comprehensive Audit Trail
+   - Immutable activity logs tracking every change made to an issue.
+   - Captures previous and new values for critical fields like Status, Assignee, Priority, and Severity.
 
-**Backend**
-- Java 17+ (Spring Boot 3.2.5)
-- Spring Security (JWT Authentication & Method-level Security)
-- Spring Data JPA (Hibernate)
-- MySQL Database
+9. Collaboration System
+   - Public comments for cross-team communication.
+   - Highlighted Internal Notes strictly for internal team usage.
+   - "@" mention system to directly notify team members.
 
-## ⚙️ Prerequisites
-- Node.js (v18+)
-- Java JDK 17+
-- Local MySQL Server (running on port `3306`)
+10. Notification Center
+    - Real-time alerts for mentions, status changes, assignments, and SLA warnings.
+    - Centralized bell icon to track unread notifications.
 
-## 🏃‍♂️ Getting Started
+11. QA Verification Module
+    - Dedicated workflow step for Quality Assurance teams to verify developer fixes before final closure.
 
-### 1. Database Setup
-Ensure your local MySQL server is running. Log in and create the database:
-```sql
-CREATE DATABASE IF NOT EXISTS issue_tracker;
-```
-*(Note: Ensure your MySQL username is `root` and password is `123456`. If different, update `backend/src/main/resources/application.properties`)*
+12. Attachment Management
+    - Ability to upload and manage logs, screenshots, and evidence files directly linked to an issue.
 
-### 2. Run the Backend
-```bash
-cd backend
-./mvnw.cmd spring-boot:run
-```
-The API server will automatically generate the database tables and start on `http://localhost:8080`.
+## Issue Lifecycle Workflow
 
-### 3. Run the Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Navigate to `http://localhost:5173` to start using the application!
+The system enforces the following linear workflow. Reopening an issue sends it back to the beginning of the cycle.
+
+1. NEW: The issue is created (manually or imported) but has not been reviewed.
+2. TRIAGED: Support or Product teams have reviewed the issue, assigned metadata (Type, Severity), and confirmed it is valid.
+3. ESCALATED: The issue requires engineering attention and is sent to the Engineering Manager.
+4. ASSIGNED: The Engineering Manager assigns the issue to a specific Developer.
+5. IN_PROGRESS: The Developer begins working on the code fix.
+6. READY_FOR_QA: The Developer has completed the fix and hands it over to QA for testing.
+7. RESOLVED: QA has verified the fix works in a staging/testing environment.
+8. CLOSED: The issue is deployed to production and the ticket is officially finalized.
+
+## Architecture
+
+- Frontend: React.js with Tailwind CSS (Dark/Light mode support).
+- Backend: Java Spring Boot with Spring Security and Spring Data JPA.
+- Database: Relational Database (SQL).
+- Automation: Spring Scheduling for background SLA jobs.
