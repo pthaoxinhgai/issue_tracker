@@ -9,8 +9,12 @@ import com.issuetracker.backend.repository.IssueRepository;
 import com.issuetracker.backend.repository.UserRepository;
 import com.issuetracker.backend.service.CommentService;
 import com.issuetracker.backend.service.UserService;
+import com.issuetracker.backend.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,6 +28,8 @@ public class CommentServiceImpl implements CommentService {
     private final com.issuetracker.backend.repository.ProblemReportRepository problemReportRepository;
     private final UserRepository userRepository;
     private final UserService userService;
+    private final NotificationService notificationService;
+    private final com.issuetracker.backend.service.ActivityLogService activityLogService;
 
     public List<CommentDto> getCommentsByIssue(Long issueId) {
         return commentRepository.findByIssueIdOrderByCreatedAtAsc(issueId).stream()
@@ -37,7 +43,7 @@ public class CommentServiceImpl implements CommentService {
                 .collect(Collectors.toList());
     }
 
-    public CommentDto addComment(Long issueId, String content) {
+    public CommentDto addComment(Long issueId, String content, boolean isInternal) {
         Issue issue = issueRepository.findById(issueId)
                 .orElseThrow(() -> new RuntimeException("Issue not found"));
         
@@ -49,9 +55,41 @@ public class CommentServiceImpl implements CommentService {
                 .issue(issue)
                 .user(user)
                 .content(content)
+                .isInternal(isInternal)
                 .build();
 
         comment = commentRepository.save(comment);
+        activityLogService.logActivity(issue, user, com.issuetracker.backend.domain.enums.ActivityAction.COMMENT_ADD, null, "Added a comment");
+
+        // Mention Logic
+        Pattern pattern = Pattern.compile("@([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,})");
+        Matcher matcher = pattern.matcher(content);
+        boolean assigneeMentioned = false;
+        while (matcher.find()) {
+            String mentionedEmail = matcher.group(1);
+            userRepository.findByEmail(mentionedEmail).ifPresent(mentionedUser -> {
+                if (!mentionedUser.getId().equals(user.getId())) {
+                    notificationService.createNotification(
+                        mentionedUser, 
+                        user.getName() + " mentioned you in Issue #" + issue.getId(), 
+                        issue.getId()
+                    );
+                }
+            });
+            if (issue.getAssignee() != null && issue.getAssignee().getEmail().equals(mentionedEmail)) {
+                assigneeMentioned = true;
+            }
+        }
+
+        // Notify Assignee if they are not the commenter and were not explicitly mentioned
+        if (issue.getAssignee() != null && !issue.getAssignee().getId().equals(user.getId()) && !assigneeMentioned) {
+            notificationService.createNotification(
+                issue.getAssignee(), 
+                user.getName() + " commented on your assigned Issue #" + issue.getId(), 
+                issue.getId()
+            );
+        }
+
         return mapToDto(comment);
     }
 
@@ -80,6 +118,7 @@ public class CommentServiceImpl implements CommentService {
                 .user(userService.mapToDto(comment.getUser()))
                 .issueId(comment.getIssue() != null ? comment.getIssue().getId() : null)
                 .problemReportId(comment.getProblemReport() != null ? comment.getProblemReport().getId() : null)
+                .isInternal(comment.isInternal())
                 .createdAt(comment.getCreatedAt())
                 .build();
     }

@@ -22,12 +22,15 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
 
+    private final com.issuetracker.backend.repository.IssueRepository issueRepository;
+
     @Override
     public void createNotification(User user, String message, Long issueId) {
         Notification notification = Notification.builder()
                 .user(user)
                 .message(message)
-                .issueId(issueId)
+                .issue(issueId != null ? issueRepository.getReferenceById(issueId) : null)
+                .type("SYSTEM")
                 .isRead(false)
                 .build();
         notificationRepository.save(notification);
@@ -64,7 +67,7 @@ public class NotificationServiceImpl implements NotificationService {
             throw new RuntimeException("Access Denied");
         }
         
-        notification.setIsRead(true);
+        notification.setRead(true);
         notificationRepository.save(notification);
     }
 
@@ -72,7 +75,7 @@ public class NotificationServiceImpl implements NotificationService {
     public void markAllAsRead() {
         User user = getCurrentUser();
         List<Notification> unread = notificationRepository.findByUserIdAndIsReadFalse(user.getId());
-        unread.forEach(n -> n.setIsRead(true));
+        unread.forEach(n -> n.setRead(true));
         notificationRepository.saveAll(unread);
     }
 
@@ -80,8 +83,8 @@ public class NotificationServiceImpl implements NotificationService {
         return NotificationDto.builder()
                 .id(n.getId())
                 .message(n.getMessage())
-                .issueId(n.getIssueId())
-                .isRead(n.getIsRead())
+                .issueId(n.getIssue() != null ? n.getIssue().getId() : null)
+                .isRead(n.isRead())
                 .createdAt(n.getCreatedAt())
                 .build();
     }

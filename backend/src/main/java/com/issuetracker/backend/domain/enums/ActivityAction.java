@@ -6,5 +6,7 @@ public enum ActivityAction {
     PRIORITY_CHANGE,
     ISSUE_UPDATE,
     LABEL_ADD,
-    LABEL_REMOVE
+    LABEL_REMOVE,
+    ISSUE_CREATE,
+    COMMENT_ADD
 }

@@ -72,10 +72,11 @@ const KanbanBoard = () => {
   };
 
   const columns = [
-    { title: 'To Do', status: 'TODO', next: 'IN_PROGRESS', prev: null, bg: 'bg-[#1c2128]', border: 'border-slate-500/30' },
-    { title: 'In Progress', status: 'IN_PROGRESS', next: 'REVIEW', prev: null, bg: 'bg-[#1c2128]', border: 'border-blue-500/30' },
-    { title: 'Review', status: 'REVIEW', next: 'DONE', prev: 'IN_PROGRESS', bg: 'bg-[#1c2128]', border: 'border-yellow-500/30' },
-    { title: 'Done', status: 'DONE', next: null, prev: 'TODO', bg: 'bg-[#1c2128]', border: 'border-green-500/30', isDone: true }
+    { title: 'To Do', status: 'ASSIGNED', next: 'IN_PROGRESS', prev: null, bg: 'bg-[#1c2128]', border: 'border-slate-500/30' },
+    { title: 'In Progress', status: 'IN_PROGRESS', next: 'READY_FOR_QA', prev: 'ASSIGNED', bg: 'bg-[#1c2128]', border: 'border-blue-500/30' },
+    { title: 'Ready for QA', status: 'READY_FOR_QA', next: 'RESOLVED', prev: 'IN_PROGRESS', bg: 'bg-[#1c2128]', border: 'border-purple-500/30' },
+    { title: 'Resolved', status: 'RESOLVED', next: 'CLOSED', prev: 'READY_FOR_QA', bg: 'bg-[#1c2128]', border: 'border-yellow-500/30' },
+    { title: 'Closed', status: 'CLOSED', next: null, prev: 'RESOLVED', bg: 'bg-[#1c2128]', border: 'border-green-500/30', isDone: true }
   ];
 
   if (loading) return <div className="text-center p-12 text-slate-500 text-sm">Loading Kanban Board...</div>;

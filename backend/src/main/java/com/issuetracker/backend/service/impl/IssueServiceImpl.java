@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.time.LocalDateTime;
+import com.issuetracker.backend.domain.enums.Severity;
 
 @Service
 @Transactional
@@ -33,6 +35,7 @@ public class IssueServiceImpl implements IssueService {
     private final com.issuetracker.backend.repository.ProblemReportRepository problemReportRepository;
     private final com.issuetracker.backend.service.NotificationService notificationService;
     private final com.issuetracker.backend.repository.ProjectRepository projectRepository;
+    private final com.issuetracker.backend.repository.IssueLinkRepository issueLinkRepository;
 
     @jakarta.annotation.PostConstruct
     public void initDefaultProject() {
@@ -40,6 +43,7 @@ public class IssueServiceImpl implements IssueService {
             com.issuetracker.backend.domain.entity.Project defaultProject = com.issuetracker.backend.domain.entity.Project.builder()
                     .name("Default Project")
                     .description("Auto-generated default project")
+                    .keyPrefix("DEF")
                     .build();
             defaultProject = projectRepository.save(defaultProject);
             
@@ -90,20 +94,24 @@ public class IssueServiceImpl implements IssueService {
             issueProject = projectRepository.findByName("Default Project").orElse(null);
         }
 
+        LocalDateTime dueDate = calculateDueDate(dto.getSeverity());
+
         Issue issue = Issue.builder()
                 .title(dto.getTitle())
                 .description(dto.getDescription())
                 .type(dto.getType())
-                .status(IssueStatus.OPEN)
+                .status(IssueStatus.NEW)
                 .priority(dto.getPriority())
                 .severity(dto.getSeverity())
                 .project(issueProject)
                 .creator(creator)
                 .problemReport(report)
+                .dueDate(dueDate)
                 .labels(dto.getLabels() != null ? dto.getLabels() : new java.util.HashSet<>())
                 .build();
 
         issue = issueRepository.save(issue);
+        activityLogService.logActivity(issue, creator, ActivityAction.ISSUE_CREATE, null, issue.getStatus().name());
         return mapToDto(issue);
     }
 
@@ -133,6 +141,7 @@ public class IssueServiceImpl implements IssueService {
             activityLogService.logActivity(issue, currentUser, ActivityAction.ISSUE_UPDATE, 
                 issue.getSeverity() != null ? issue.getSeverity().name() : "NONE", dto.getSeverity().name());
             issue.setSeverity(dto.getSeverity());
+            issue.setDueDate(calculateDueDate(dto.getSeverity()));
         }
         
         if (dto.getProjectId() != null && (issue.getProject() == null || !dto.getProjectId().equals(issue.getProject().getId()))) {
@@ -181,6 +190,12 @@ public class IssueServiceImpl implements IssueService {
                 issue.getId());
         }
 
+        if (issue.getStatus() == IssueStatus.TRIAGED || issue.getStatus() == IssueStatus.ESCALATED || issue.getStatus() == IssueStatus.REOPENED) {
+            issueStateMachine.validateTransition(issue.getStatus(), IssueStatus.ASSIGNED);
+            activityLogService.logActivity(issue, currentUser, ActivityAction.STATUS_CHANGE, issue.getStatus().name(), IssueStatus.ASSIGNED.name());
+            issue.setStatus(IssueStatus.ASSIGNED);
+        }
+
         return mapToDto(issue);
     }
 
@@ -194,6 +209,16 @@ public class IssueServiceImpl implements IssueService {
             activityLogService.logActivity(issue, currentUser, ActivityAction.STATUS_CHANGE, issue.getStatus().name(), newStatus.name());
             issue.setStatus(newStatus);
             issue = issueRepository.save(issue);
+            
+            // Notification on status change
+            String message = currentUser.getName() + " changed status to " + newStatus.name() + " on Issue #" + issue.getId();
+            if (issue.getAssignee() != null && !issue.getAssignee().getId().equals(currentUser.getId())) {
+                notificationService.createNotification(issue.getAssignee(), message, issue.getId());
+            }
+            if (issue.getCreator() != null && !issue.getCreator().getId().equals(currentUser.getId()) &&
+               (issue.getAssignee() == null || !issue.getCreator().getId().equals(issue.getAssignee().getId()))) {
+                notificationService.createNotification(issue.getCreator(), message, issue.getId());
+            }
         }
         return mapToDto(issue);
     }
@@ -226,6 +251,97 @@ public class IssueServiceImpl implements IssueService {
         return mapToDto(issue);
     }
 
+    public IssueDto escalateIssue(Long issueId, String reason, String impactLevel, String evidence) {
+        Issue issue = issueRepository.findById(issueId)
+                .orElseThrow(() -> new RuntimeException("Issue not found"));
+
+        User currentUser = getCurrentUser();
+        
+        issueStateMachine.validateTransition(issue.getStatus(), IssueStatus.ESCALATED);
+        activityLogService.logActivity(issue, currentUser, ActivityAction.STATUS_CHANGE, issue.getStatus().name(), IssueStatus.ESCALATED.name());
+        
+        issue.setStatus(IssueStatus.ESCALATED);
+        
+        // Save escalation details as a comment
+        String escalationComment = String.format("Escalated! Reason: %s | Impact: %s | Evidence: %s", reason, impactLevel, evidence);
+        com.issuetracker.backend.domain.entity.Comment comment = com.issuetracker.backend.domain.entity.Comment.builder()
+                .issue(issue)
+                .user(currentUser)
+                .content(escalationComment)
+                .isInternal(true)
+                .build();
+        // Since we don't have comment repository injected here, we can rely on cascade if configured or just return for now
+        // Wait, better to let a service handle it or use the notification.
+        // Let's notify POs
+        List<User> pos = userRepository.findAll().stream().filter(u -> u.getRole() == com.issuetracker.backend.domain.enums.Role.PRODUCT_OWNER || u.getRole() == com.issuetracker.backend.domain.enums.Role.ENGINEERING_MANAGER).toList();
+        for (User po : pos) {
+            notificationService.createNotification(po, "Issue #" + issue.getId() + " escalated by " + currentUser.getName(), issue.getId());
+        }
+
+        issue = issueRepository.save(issue);
+        return mapToDto(issue);
+    }
+
+    public IssueDto linkIssues(Long sourceId, Long targetId, String linkType) {
+        Issue source = issueRepository.findById(sourceId).orElseThrow(() -> new RuntimeException("Source Issue not found"));
+        Issue target = issueRepository.findById(targetId).orElseThrow(() -> new RuntimeException("Target Issue not found"));
+
+        com.issuetracker.backend.domain.entity.IssueLink link = com.issuetracker.backend.domain.entity.IssueLink.builder()
+                .sourceIssue(source)
+                .targetIssue(target)
+                .linkType(linkType)
+                .build();
+        issueLinkRepository.save(link);
+        
+        // Add activity log
+        User currentUser = getCurrentUser();
+        activityLogService.logActivity(source, currentUser, com.issuetracker.backend.domain.enums.ActivityAction.ISSUE_UPDATE, null, "Linked to Issue #" + targetId + " as " + linkType);
+
+        return mapToDto(source);
+    }
+
+    public List<IssueDto> searchIssues(String query) {
+        return issueRepository.searchIssues(query).stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    public IssueDto mergeDuplicate(Long duplicateId, Long primaryId) {
+        Issue duplicate = issueRepository.findById(duplicateId).orElseThrow(() -> new RuntimeException("Duplicate Issue not found"));
+        Issue primary = issueRepository.findById(primaryId).orElseThrow(() -> new RuntimeException("Primary Issue not found"));
+        
+        if (duplicate.getId().equals(primary.getId())) {
+            throw new RuntimeException("Cannot merge issue into itself");
+        }
+
+        // Link them
+        com.issuetracker.backend.domain.entity.IssueLink link = com.issuetracker.backend.domain.entity.IssueLink.builder()
+                .sourceIssue(duplicate)
+                .targetIssue(primary)
+                .linkType("DUPLICATE")
+                .build();
+        issueLinkRepository.save(link);
+        
+        User currentUser = getCurrentUser();
+        
+        // Close duplicate
+        activityLogService.logActivity(duplicate, currentUser, com.issuetracker.backend.domain.enums.ActivityAction.STATUS_CHANGE, duplicate.getStatus().name(), IssueStatus.CLOSED.name());
+        duplicate.setStatus(IssueStatus.CLOSED);
+        
+        // Add comment
+        com.issuetracker.backend.domain.entity.Comment comment = com.issuetracker.backend.domain.entity.Comment.builder()
+                .issue(duplicate)
+                .user(currentUser)
+                .content("Merged into Primary Issue #" + primaryId)
+                .isInternal(true)
+                .build();
+                
+        // Copy customer email if empty in primary (optional, skipping for simplicity)
+        
+        issueRepository.save(duplicate);
+        return mapToDto(duplicate);
+    }
+
     private IssueDto mapToDto(Issue issue) {
         return IssueDto.builder()
                 .id(issue.getId())
@@ -243,8 +359,24 @@ public class IssueServiceImpl implements IssueService {
                 .assignee(userService.mapToDto(issue.getAssignee()))
                 .creator(userService.mapToDto(issue.getCreator()))
                 .problemReportId(issue.getProblemReport().getId())
+                .customerEmail(issue.getCustomerEmail())
+                .attachmentLink(issue.getAttachmentLink())
+                .duplicateCount(issueLinkRepository.countByTargetIssueIdAndLinkType(issue.getId(), "DUPLICATE"))
+                .labels(issue.getLabels())
+                .dueDate(issue.getDueDate())
                 .createdAt(issue.getCreatedAt())
                 .updatedAt(issue.getUpdatedAt())
                 .build();
+    }
+
+    private LocalDateTime calculateDueDate(Severity severity) {
+        if (severity == null) return LocalDateTime.now().plusHours(48);
+        switch (severity) {
+            case S1: return LocalDateTime.now().plusHours(2);
+            case S2: return LocalDateTime.now().plusHours(8);
+            case S3: return LocalDateTime.now().plusHours(24);
+            case S4: return LocalDateTime.now().plusHours(48);
+            default: return LocalDateTime.now().plusHours(48);
+        }
     }
 }

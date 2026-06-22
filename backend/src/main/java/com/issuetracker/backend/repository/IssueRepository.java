@@ -25,4 +25,8 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
     List<Issue> findFilteredIssues(@Param("status") com.issuetracker.backend.domain.enums.IssueStatus status,
                                    @Param("assigneeId") Long assigneeId,
                                    @Param("priority") com.issuetracker.backend.domain.enums.Priority priority);
+
+    @EntityGraph(attributePaths = {"assignee", "creator", "labels"})
+    @Query("SELECT i FROM Issue i WHERE LOWER(i.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(i.description) LIKE LOWER(CONCAT('%', :query, '%'))")
+    List<Issue> searchIssues(@Param("query") String query);
 }

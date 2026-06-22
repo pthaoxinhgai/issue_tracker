@@ -22,7 +22,7 @@ public class IssueSecurityService {
         User user = (User) authentication.getPrincipal();
         Role role = user.getRole();
 
-        if (role == Role.MAINTAINER) {
+        if (role == Role.ADMIN || role == Role.SUPPORT_STAFF || role == Role.PRODUCT_OWNER || role == Role.ENGINEERING_MANAGER) {
             return true;
         }
 
@@ -31,7 +31,7 @@ public class IssueSecurityService {
             return false; // let 404 be handled by the controller
         }
 
-        if (role == Role.DEVELOPER) {
+        if (role == Role.DEVELOPER || role == Role.QA) {
             return issue.getAssignee() != null && issue.getAssignee().getId().equals(user.getId());
         }
 

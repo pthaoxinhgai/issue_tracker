@@ -25,8 +25,31 @@ export const issueService = {
     const response = await api.get(`/issues/${id}/comments`);
     return response.data;
   },
-  addComment: async (id, content) => {
-    const response = await api.post(`/issues/${id}/comments`, { content });
+  addComment: async (id, content, isInternal = false) => {
+    const response = await api.post(`/issues/${id}/comments`, { content, isInternal });
+    return response.data;
+  },
+  escalate: async (id, reason, impactLevel, evidence) => {
+    const params = new URLSearchParams({ reason, impactLevel, evidence });
+    const response = await api.post(`/issues/${id}/escalate?${params.toString()}`);
+    return response.data;
+  },
+  link: async (id, targetId, linkType) => {
+    const params = new URLSearchParams({ linkType });
+    const response = await api.post(`/issues/${id}/link/${targetId}?${params.toString()}`);
+    return response.data;
+  },
+  search: async (query) => {
+    const response = await api.get(`/issues/search?query=${encodeURIComponent(query)}`);
+    return response.data;
+  },
+  merge: async (duplicateId, primaryId) => {
+    const response = await api.post(`/issues/${duplicateId}/merge/${primaryId}`);
+    return response.data;
+  },
+  changeStatus: async (id, newStatus) => {
+    const params = new URLSearchParams({ newStatus });
+    const response = await api.patch(`/issues/${id}/status?${params.toString()}`);
     return response.data;
   }
 };

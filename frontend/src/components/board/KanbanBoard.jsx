@@ -6,9 +6,9 @@ import { useAuth } from '../../context/AuthContext';
 import { IssueDetailModal } from '../issue/IssueDetailModal';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
-const COLUMNS = ['OPEN', 'IN_PROGRESS', 'REVIEW', 'DONE'];
+const COLUMNS = ['NEW', 'TRIAGED', 'ESCALATED', 'ASSIGNED', 'IN_PROGRESS', 'READY_FOR_QA', 'RESOLVED', 'CLOSED'];
 
-export const KanbanBoard = () => {
+export const KanbanBoard = ({ activeFilters }) => {
     const [issues, setIssues] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedIssueId, setSelectedIssueId] = useState(null);
@@ -52,15 +52,9 @@ export const KanbanBoard = () => {
         const newStatus = destination.droppableId;
         const targetIssue = issues.find(i => i.id === issueId);
 
-        // Client side validation based on roles and state machine rules
-        // Only DEVELOPER and MAINTAINER can move issues
-        if (!hasRole(['DEVELOPER', 'MAINTAINER'])) return;
-        
-        // Developer can only move if they are assignee (or we let backend reject it)
-        if (user.role === 'DEVELOPER' && targetIssue?.assignee?.email !== user.email) {
-            alert('You can only move issues assigned to you.');
-            return;
-        }
+        // Rely strictly on Backend State Machine logic for transitions and roles
+        // We do optimistic UI update first
+
 
         // Optimistic UI update
         setIssues(prev => prev.map(issue => 
@@ -92,6 +86,20 @@ export const KanbanBoard = () => {
         return <div className="flex justify-center items-center h-64 text-gray-500">Loading board...</div>;
     }
 
+    // Apply filters before rendering
+    const filteredIssues = issues.filter(issue => {
+        if (activeFilters?.priority && activeFilters.priority !== 'ALL' && issue.priority !== activeFilters.priority) {
+            return false;
+        }
+        if (activeFilters?.type && activeFilters.type !== 'ALL' && issue.type !== activeFilters.type) {
+            return false;
+        }
+        if (activeFilters?.onlyMyIssues && issue.assignee?.email !== user?.email) {
+            return false;
+        }
+        return true;
+    });
+
     return (
         <div className="h-full flex flex-col">
             <DragDropContext onDragEnd={handleDragEnd}>
@@ -100,7 +108,7 @@ export const KanbanBoard = () => {
                         <KanbanColumn 
                             key={status} 
                             status={status} 
-                            issues={issues.filter(i => i.status === status)}
+                            issues={filteredIssues.filter(i => i.status === status)}
                             onIssueClick={handleIssueClick}
                         />
                     ))}

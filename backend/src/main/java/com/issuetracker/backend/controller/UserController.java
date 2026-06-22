@@ -18,17 +18,32 @@ public class UserController {
 
     private final UserService userService;
 
-    @PreAuthorize("hasRole('MAINTAINER')")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<UserDto>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
-    @PreAuthorize("hasRole('MAINTAINER')")
+    @PreAuthorize("hasRole('ADMIN')")
     @org.springframework.web.bind.annotation.PutMapping("/{id}/role")
     public ResponseEntity<UserDto> changeRole(
             @org.springframework.web.bind.annotation.PathVariable Long id,
             @org.springframework.web.bind.annotation.RequestParam com.issuetracker.backend.domain.enums.Role role) {
         return ResponseEntity.ok(userService.changeRole(id, role));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.web.bind.annotation.PostMapping
+    public ResponseEntity<UserDto> createUser(
+            @org.springframework.web.bind.annotation.RequestBody com.issuetracker.backend.dto.request.UserCreateRequest request) {
+        return ResponseEntity.ok(userService.createUser(request));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.web.bind.annotation.PutMapping("/{id}")
+    public ResponseEntity<UserDto> updateUser(
+            @org.springframework.web.bind.annotation.PathVariable Long id,
+            @org.springframework.web.bind.annotation.RequestBody com.issuetracker.backend.dto.request.UserUpdateRequest request) {
+        return ResponseEntity.ok(userService.updateUser(id, request));
     }
 }

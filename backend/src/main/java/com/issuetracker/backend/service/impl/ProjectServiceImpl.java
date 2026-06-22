@@ -38,6 +38,7 @@ public class ProjectServiceImpl implements ProjectService {
         Project project = Project.builder()
                 .name(name)
                 .description(description)
+                .keyPrefix(name.length() >= 3 ? name.substring(0, 3).toUpperCase() : name.toUpperCase())
                 .build();
         project = projectRepository.save(project);
         return mapToDto(project);

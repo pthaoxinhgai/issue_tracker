@@ -35,7 +35,7 @@ public class UserServiceImpl implements UserService {
         }
         
         long userCount = userRepository.count();
-        Role assignedRole = (userCount == 0) ? Role.MAINTAINER : Role.GUEST;
+        Role assignedRole = (userCount == 0) ? Role.ADMIN : Role.SUPPORT_STAFF;
 
         User user = User.builder()
                 .name(request.getName())
@@ -88,6 +88,45 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setRole(newRole);
+        return mapToDto(userRepository.save(user));
+    }
+
+    public UserDto createUser(com.issuetracker.backend.dto.request.UserCreateRequest request) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("Email already exists");
+        }
+        User user = User.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(request.getRole() != null ? request.getRole() : Role.SUPPORT_STAFF)
+                .build();
+        return mapToDto(userRepository.save(user));
+    }
+
+    public UserDto updateUser(Long userId, com.issuetracker.backend.dto.request.UserUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+            if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+                throw new RuntimeException("Email already exists");
+            }
+            user.setEmail(request.getEmail());
+        }
+        
+        if (request.getName() != null && !request.getName().isEmpty()) {
+            user.setName(request.getName());
+        }
+        
+        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+        
+        if (request.getRole() != null) {
+            user.setRole(request.getRole());
+        }
+        
         return mapToDto(userRepository.save(user));
     }
 }

@@ -1,0 +1,4 @@
+title,description,type,priority,labels,customer email,project,impact,attachment link
+"Login page crash","App crashes on Chrome 114","BUG","HIGH","frontend,urgent","user@example.com","Default Project","CRITICAL","https://example.com/logs/crash.txt"
+"Add dark mode","User requested a dark theme","FEATURE","LOW","ui,theme","darkfan@example.com","","MINOR",""
+"Payment gateway down","Stripe integration failing with 500 error","BUG","CRITICAL","backend,payment","vip_client@example.com","Default Project","BLOCKER",""

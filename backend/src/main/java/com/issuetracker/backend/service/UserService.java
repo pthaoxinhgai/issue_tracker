@@ -14,4 +14,6 @@ public interface UserService {
     UserDto mapToDto(User user);
     List<UserDto> getAllUsers();
     UserDto changeRole(Long userId, com.issuetracker.backend.domain.enums.Role newRole);
+    UserDto createUser(com.issuetracker.backend.dto.request.UserCreateRequest request);
+    UserDto updateUser(Long userId, com.issuetracker.backend.dto.request.UserUpdateRequest request);
 }

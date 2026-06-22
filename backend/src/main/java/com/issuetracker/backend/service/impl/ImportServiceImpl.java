@@ -10,6 +10,7 @@ import com.issuetracker.backend.domain.enums.ReportStatus;
 import com.issuetracker.backend.dto.response.ImportResultDto;
 import com.issuetracker.backend.repository.IssueRepository;
 import com.issuetracker.backend.repository.ProblemReportRepository;
+import com.issuetracker.backend.repository.ProjectRepository;
 import com.issuetracker.backend.service.ImportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ public class ImportServiceImpl implements ImportService {
 
     private final IssueRepository issueRepository;
     private final ProblemReportRepository problemReportRepository;
+    private final ProjectRepository projectRepository;
 
     @Override
     @Transactional
@@ -95,8 +97,13 @@ public class ImportServiceImpl implements ImportService {
                     String typeStr = record.isSet("type") ? record.get("type") : "TASK";
                     String priorityStr = record.isSet("priority") ? record.get("priority") : "LOW";
                     String labelsStr = record.isSet("labels") ? record.get("labels") : "";
+                    
+                    String customerEmail = record.isSet("customer email") ? record.get("customer email") : "";
+                    String projectStr = record.isSet("project") ? record.get("project") : "";
+                    String impactStr = record.isSet("impact") ? record.get("impact") : "";
+                    String attachmentLink = record.isSet("attachment link") ? record.get("attachment link") : "";
 
-                    Issue issue = createIssueFromData(title, description, typeStr, priorityStr, labelsStr, batchReport, creator);
+                    Issue issue = createIssueFromData(title, description, typeStr, priorityStr, labelsStr, customerEmail, projectStr, impactStr, attachmentLink, batchReport, creator);
                     issueRepository.save(issue);
                     result.setSuccessfulRows(result.getSuccessfulRows() + 1);
 
@@ -144,11 +151,16 @@ public class ImportServiceImpl implements ImportService {
                     String typeStr = getCellValue(currentRow, headerMap.get("type"));
                     String priorityStr = getCellValue(currentRow, headerMap.get("priority"));
                     String labelsStr = getCellValue(currentRow, headerMap.get("labels"));
+                    
+                    String customerEmail = getCellValue(currentRow, headerMap.get("customer email"));
+                    String projectStr = getCellValue(currentRow, headerMap.get("project"));
+                    String impactStr = getCellValue(currentRow, headerMap.get("impact"));
+                    String attachmentLink = getCellValue(currentRow, headerMap.get("attachment link"));
 
                     if (typeStr.isEmpty()) typeStr = "TASK";
                     if (priorityStr.isEmpty()) priorityStr = "LOW";
 
-                    Issue issue = createIssueFromData(title, description, typeStr, priorityStr, labelsStr, batchReport, creator);
+                    Issue issue = createIssueFromData(title, description, typeStr, priorityStr, labelsStr, customerEmail, projectStr, impactStr, attachmentLink, batchReport, creator);
                     issueRepository.save(issue);
                     result.setSuccessfulRows(result.getSuccessfulRows() + 1);
 
@@ -167,7 +179,9 @@ public class ImportServiceImpl implements ImportService {
         return row.getCell(index).getStringCellValue().trim();
     }
 
-    private Issue createIssueFromData(String title, String description, String typeStr, String priorityStr, String labelsStr, ProblemReport batchReport, User creator) {
+    private Issue createIssueFromData(String title, String description, String typeStr, String priorityStr, String labelsStr, 
+                                      String customerEmail, String projectStr, String impactStr, String attachmentLink, 
+                                      ProblemReport batchReport, User creator) {
         if (title == null || title.trim().isEmpty()) {
             throw new IllegalArgumentException("Title is required");
         }
@@ -185,6 +199,21 @@ public class ImportServiceImpl implements ImportService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid priority: " + priorityStr);
         }
+        
+        com.issuetracker.backend.domain.enums.Severity severity = null;
+        if (impactStr != null && !impactStr.trim().isEmpty()) {
+            try {
+                severity = com.issuetracker.backend.domain.enums.Severity.valueOf(impactStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid severity, leave as null
+            }
+        }
+        
+        com.issuetracker.backend.domain.entity.Project project = null;
+        if (projectStr != null && !projectStr.trim().isEmpty()) {
+            project = projectRepository.findByName(projectStr.trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectStr));
+        }
 
         Set<String> labels = new HashSet<>();
         if (labelsStr != null && !labelsStr.trim().isEmpty()) {
@@ -199,9 +228,13 @@ public class ImportServiceImpl implements ImportService {
                 .description(description)
                 .type(type)
                 .priority(priority)
-                .status(IssueStatus.OPEN)
+                .severity(severity)
+                .status(IssueStatus.NEW)
                 .problemReport(batchReport)
                 .creator(creator)
+                .project(project)
+                .customerEmail(customerEmail)
+                .attachmentLink(attachmentLink)
                 .labels(labels)
                 .build();
     }

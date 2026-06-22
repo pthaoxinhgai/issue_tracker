@@ -25,7 +25,11 @@ public class IssueDto {
     private UserDto assignee;
     private UserDto creator;
     private Long problemReportId;
+    private String customerEmail;
+    private String attachmentLink;
+    private Integer duplicateCount;
     private Set<String> labels;
+    private LocalDateTime dueDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -1,8 +1,10 @@
 package com.issuetracker.backend.domain.enums;
 
 public enum Role {
-    GUEST,
-    REPORTER,
+    SUPPORT_STAFF,
+    PRODUCT_OWNER,
+    ENGINEERING_MANAGER,
     DEVELOPER,
-    MAINTAINER
+    QA,
+    ADMIN
 }

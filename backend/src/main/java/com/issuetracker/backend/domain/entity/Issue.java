@@ -60,14 +60,23 @@ public class Issue {
     private User creator;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "problem_report_id", nullable = false)
+    @JoinColumn(name = "problem_report_id", nullable = true)
     private ProblemReport problemReport;
+
+    @Column(name = "customer_email")
+    private String customerEmail;
+
+    @Column(name = "attachment_link", columnDefinition = "TEXT")
+    private String attachmentLink;
 
     @ElementCollection
     @CollectionTable(name = "issue_labels", joinColumns = @JoinColumn(name = "issue_id"))
     @Column(name = "label")
     @Builder.Default
     private Set<String> labels = new HashSet<>();
+
+    @Column(name = "due_date")
+    private LocalDateTime dueDate;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

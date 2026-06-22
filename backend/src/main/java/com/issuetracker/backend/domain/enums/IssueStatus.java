@@ -1,10 +1,13 @@
 package com.issuetracker.backend.domain.enums;
 
 public enum IssueStatus {
-    OPEN,
+    NEW,
+    TRIAGED,
+    ESCALATED,
+    ASSIGNED,
     IN_PROGRESS,
-    REVIEW,
-    DONE,
+    READY_FOR_QA,
+    RESOLVED,
     CLOSED,
     REOPENED
 }

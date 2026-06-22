@@ -1,9 +1,8 @@
 package com.issuetracker.backend.domain.enums;
 
 public enum Severity {
-    TRIVIAL,
-    MINOR,
-    MAJOR,
-    CRITICAL,
-    BLOCKER
+    S1,
+    S2,
+    S3,
+    S4
 }

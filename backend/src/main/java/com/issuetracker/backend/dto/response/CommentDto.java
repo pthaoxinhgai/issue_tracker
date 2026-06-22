@@ -12,5 +12,6 @@ public class CommentDto {
     private UserDto user;
     private Long issueId;
     private Long problemReportId;
+    private boolean isInternal;
     private LocalDateTime createdAt;
 }

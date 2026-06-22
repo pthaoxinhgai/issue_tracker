@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllUsers, changeUserRole } from '../services/user.service';
+import { getAllUsers, changeUserRole, createUser, updateUser } from '../services/user.service';
 import { useAuth } from '../context/AuthContext';
 import { Shield, ShieldAlert, ShieldCheck, ShieldHalf, Users } from 'lucide-react';
 
@@ -7,6 +7,12 @@ export const UserManagement = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const { user } = useAuth();
+    
+    // Modal states
+    const [showModal, setShowModal] = useState(false);
+    const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'SUPPORT_STAFF' });
 
     const fetchUsers = async () => {
         try {
@@ -34,20 +40,53 @@ export const UserManagement = () => {
         }
     };
 
+    const handleOpenModal = (mode, u = null) => {
+        setModalMode(mode);
+        setSelectedUser(u);
+        if (mode === 'edit' && u) {
+            setFormData({ name: u.name, email: u.email, password: '', role: u.role });
+        } else {
+            setFormData({ name: '', email: '', password: '', role: 'SUPPORT_STAFF' });
+        }
+        setShowModal(true);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            if (modalMode === 'create') {
+                await createUser(formData);
+            } else {
+                await updateUser(selectedUser.id, formData);
+            }
+            setShowModal(false);
+            fetchUsers();
+        } catch (error) {
+            console.error('Failed to save user', error);
+            alert('Error: ' + (error.response?.data?.message || 'Failed to save user'));
+        }
+    };
+
     const getRoleIcon = (role) => {
         switch (role) {
-            case 'MAINTAINER': return <ShieldAlert className="h-4 w-4 text-red-600" />;
+            case 'ADMIN': return <ShieldAlert className="h-4 w-4 text-red-600" />;
+            case 'ENGINEERING_MANAGER':
+            case 'PRODUCT_OWNER': return <ShieldHalf className="h-4 w-4 text-purple-600" />;
             case 'DEVELOPER': return <ShieldCheck className="h-4 w-4 text-emerald-600" />;
-            case 'REPORTER': return <ShieldHalf className="h-4 w-4 text-amber-600" />;
+            case 'QA': return <ShieldCheck className="h-4 w-4 text-blue-600" />;
+            case 'SUPPORT_STAFF': return <ShieldHalf className="h-4 w-4 text-amber-600" />;
             default: return <Shield className="h-4 w-4 text-gray-400" />;
         }
     };
 
     const getRoleBadge = (role) => {
         switch (role) {
-            case 'MAINTAINER': return 'bg-red-100 text-red-800 border-red-200';
+            case 'ADMIN': return 'bg-red-100 text-red-800 border-red-200';
+            case 'ENGINEERING_MANAGER':
+            case 'PRODUCT_OWNER': return 'bg-purple-100 text-purple-800 border-purple-200';
             case 'DEVELOPER': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-            case 'REPORTER': return 'bg-amber-100 text-amber-800 border-amber-200';
+            case 'QA': return 'bg-blue-100 text-blue-800 border-blue-200';
+            case 'SUPPORT_STAFF': return 'bg-amber-100 text-amber-800 border-amber-200';
             default: return 'bg-gray-100 text-gray-800 border-gray-200';
         }
     };
@@ -62,6 +101,9 @@ export const UserManagement = () => {
                     </h1>
                     <p className="text-gray-500 mt-1">Manage system accounts and their permission roles.</p>
                 </div>
+                <button onClick={() => handleOpenModal('create')} className="btn-primary">
+                    + Create User
+                </button>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -105,20 +147,30 @@ export const UserManagement = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {u.id !== user.id ? (
-                                            <select
-                                                className="input-field py-1.5 text-sm"
-                                                value={u.role}
-                                                onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                        <div className="flex items-center gap-2">
+                                            {u.id !== user.id ? (
+                                                <select
+                                                    className="input-field py-1.5 text-sm w-40"
+                                                    value={u.role}
+                                                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                                >
+                                                    <option value="SUPPORT_STAFF">SUPPORT_STAFF</option>
+                                                    <option value="PRODUCT_OWNER">PRODUCT_OWNER</option>
+                                                    <option value="ENGINEERING_MANAGER">ENGINEERING_MANAGER</option>
+                                                    <option value="DEVELOPER">DEVELOPER</option>
+                                                    <option value="QA">QA</option>
+                                                    <option value="ADMIN">ADMIN</option>
+                                                </select>
+                                            ) : (
+                                                <span className="text-gray-400 italic text-xs w-40 inline-block">Cannot change own role</span>
+                                            )}
+                                            <button 
+                                                onClick={() => handleOpenModal('edit', u)}
+                                                className="text-primary hover:text-primary/80 font-medium text-sm underline"
                                             >
-                                                <option value="GUEST">GUEST</option>
-                                                <option value="REPORTER">REPORTER</option>
-                                                <option value="DEVELOPER">DEVELOPER</option>
-                                                <option value="MAINTAINER">MAINTAINER</option>
-                                            </select>
-                                        ) : (
-                                            <span className="text-gray-400 italic text-xs">Cannot change own role</span>
-                                        )}
+                                                Edit
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -126,6 +178,46 @@ export const UserManagement = () => {
                     </table>
                 )}
             </div>
+
+            {/* Modal */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md animate-in zoom-in-95">
+                        <h2 className="text-xl font-bold mb-4">{modalMode === 'create' ? 'Create New User' : 'Edit User'}</h2>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                <input type="text" required className="input-field" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" required className="input-field" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Password {modalMode === 'edit' && <span className="text-gray-400 font-normal">(leave blank to keep current)</span>}
+                                </label>
+                                <input type="password" required={modalMode === 'create'} className="input-field" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                                <select className="input-field" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
+                                    <option value="SUPPORT_STAFF">SUPPORT_STAFF</option>
+                                    <option value="PRODUCT_OWNER">PRODUCT_OWNER</option>
+                                    <option value="ENGINEERING_MANAGER">ENGINEERING_MANAGER</option>
+                                    <option value="DEVELOPER">DEVELOPER</option>
+                                    <option value="QA">QA</option>
+                                    <option value="ADMIN">ADMIN</option>
+                                </select>
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancel</button>
+                                <button type="submit" className="btn-primary">{modalMode === 'create' ? 'Create' : 'Save Changes'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

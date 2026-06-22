@@ -78,25 +78,25 @@ export const Navbar = () => {
                                     <LayoutDashboard className="h-4 w-4" />
                                     Dashboard
                                 </Link>
-                                {(user.role === 'REPORTER' || user.role === 'MAINTAINER') && (
+                                {(user.role === 'SUPPORT_STAFF' || user.role === 'ADMIN') && (
                                     <Link to="/reports" className={navLinkClass('/reports')}>
                                         <PlusSquare className="h-4 w-4" />
                                         Reports
                                     </Link>
                                 )}
-                                {(user.role === 'SUPPORT_STAFF' || user.role === 'ADMIN' || user.role === 'MAINTAINER') && (
+                                {(user.role === 'SUPPORT_STAFF' || user.role === 'ADMIN') && (
                                     <Link to="/import" className={navLinkClass('/import')}>
                                         <Upload className="h-4 w-4" />
                                         Import
                                     </Link>
                                 )}
-                                {(user.role === 'DEVELOPER' || user.role === 'MAINTAINER') && (
+                                {(user.role === 'DEVELOPER' || user.role === 'QA' || user.role === 'ENGINEERING_MANAGER' || user.role === 'PRODUCT_OWNER' || user.role === 'ADMIN') && (
                                     <Link to="/board" className={navLinkClass('/board')}>
                                         <Kanban className="h-4 w-4" />
                                         Kanban Board
                                     </Link>
                                 )}
-                                {user.role === 'MAINTAINER' && (
+                                {user.role === 'ADMIN' && (
                                     <Link to="/users" className={navLinkClass('/users')}>
                                         <Users className="h-4 w-4" />
                                         Users
@@ -108,7 +108,7 @@ export const Navbar = () => {
 
                     {user && (
                         <div className="flex items-center gap-4">
-                            {user.role === 'REPORTER' && (
+                            {user.role === 'SUPPORT_STAFF' && (
                                 <Link to="/reports/new" className="btn-primary flex items-center gap-2">
                                     <PlusSquare className="h-4 w-4" />
                                     <span>Create Report</span>

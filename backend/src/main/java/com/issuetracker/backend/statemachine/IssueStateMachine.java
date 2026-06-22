@@ -16,12 +16,15 @@ public class IssueStateMachine {
     public IssueStateMachine() {
         transitionMatrix = new EnumMap<>(IssueStatus.class);
 
-        transitionMatrix.put(IssueStatus.OPEN, EnumSet.of(IssueStatus.IN_PROGRESS, IssueStatus.CLOSED));
-        transitionMatrix.put(IssueStatus.IN_PROGRESS, EnumSet.of(IssueStatus.REVIEW, IssueStatus.DONE, IssueStatus.CLOSED));
-        transitionMatrix.put(IssueStatus.REVIEW, EnumSet.of(IssueStatus.IN_PROGRESS, IssueStatus.DONE, IssueStatus.CLOSED));
-        transitionMatrix.put(IssueStatus.DONE, EnumSet.of(IssueStatus.REOPENED, IssueStatus.CLOSED));
-        transitionMatrix.put(IssueStatus.REOPENED, EnumSet.of(IssueStatus.IN_PROGRESS, IssueStatus.CLOSED));
+        transitionMatrix.put(IssueStatus.NEW, EnumSet.of(IssueStatus.TRIAGED, IssueStatus.CLOSED));
+        transitionMatrix.put(IssueStatus.TRIAGED, EnumSet.of(IssueStatus.ESCALATED, IssueStatus.ASSIGNED, IssueStatus.CLOSED));
+        transitionMatrix.put(IssueStatus.ESCALATED, EnumSet.of(IssueStatus.ASSIGNED, IssueStatus.CLOSED));
+        transitionMatrix.put(IssueStatus.ASSIGNED, EnumSet.of(IssueStatus.IN_PROGRESS, IssueStatus.CLOSED));
+        transitionMatrix.put(IssueStatus.IN_PROGRESS, EnumSet.of(IssueStatus.READY_FOR_QA, IssueStatus.CLOSED));
+        transitionMatrix.put(IssueStatus.READY_FOR_QA, EnumSet.of(IssueStatus.RESOLVED, IssueStatus.IN_PROGRESS));
+        transitionMatrix.put(IssueStatus.RESOLVED, EnumSet.of(IssueStatus.CLOSED, IssueStatus.REOPENED));
         transitionMatrix.put(IssueStatus.CLOSED, EnumSet.of(IssueStatus.REOPENED));
+        transitionMatrix.put(IssueStatus.REOPENED, EnumSet.of(IssueStatus.ASSIGNED, IssueStatus.IN_PROGRESS));
     }
 
     public void validateTransition(IssueStatus currentStatus, IssueStatus newStatus) {

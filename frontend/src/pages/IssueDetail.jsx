@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { issueService } from '../api/issueService';
 import { userService } from '../api/userService';
+import { projectService } from '../api/projectService';
 import { getAttachments, uploadAttachment } from '../services/attachment.service';
-import { MessageSquare, User, Clock, Check, ArrowLeft, Paperclip, Download, Upload as UploadIcon } from 'lucide-react';
+import { MessageSquare, User, Clock, Check, ArrowLeft, Paperclip, Download, Upload as UploadIcon, Copy, Search, AlertTriangle, Edit3, ArrowRightCircle, RefreshCcw, XCircle, PlayCircle, CheckCircle2, ShieldCheck, Timer } from 'lucide-react';
 
 const IssueDetail = () => {
   const { id } = useParams();
@@ -13,7 +14,29 @@ const IssueDetail = () => {
   const [attachments, setAttachments] = useState([]);
   const [users, setUsers] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [isInternalComment, setIsInternalComment] = useState(false);
+  const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showEscalate, setShowEscalate] = useState(false);
+  const [escalateData, setEscalateData] = useState({ reason: '', impactLevel: 'LOW', evidence: '' });
+  
+  const [showMerge, setShowMerge] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedPrimary, setSelectedPrimary] = useState(null);
+  
+  const [projects, setProjects] = useState([]);
+  const [showTriage, setShowTriage] = useState(false);
+  const [triageData, setTriageData] = useState({
+    type: 'BUG',
+    priority: 'LOW',
+    severity: 'S4',
+    projectId: '',
+    labels: ''
+  });
+
+  const [showQA, setShowQA] = useState(false);
+  const [qaData, setQaData] = useState({ result: 'PASS', note: '' });
 
   useEffect(() => {
     fetchData();
@@ -21,16 +44,19 @@ const IssueDetail = () => {
 
   const fetchData = async () => {
     try {
-      const [issueData, commentsData, usersData, attachmentsData] = await Promise.all([
+      const [issueData, commentsData, attachmentsData, usersData, activitiesData] = await Promise.all([
         issueService.getById(id),
         issueService.getComments(id),
+        getAttachments(id),
         userService.getAll(),
-        getAttachments(id)
+        api.get(`/issues/${id}/activities`).then(res => res.data).catch(() => [])
       ]);
       setIssue(issueData);
       setComments(commentsData);
-      setUsers(usersData);
       setAttachments(attachmentsData);
+      setUsers(usersData);
+      setActivities(activitiesData);
+      setProjects(await projectService.getAll());
     } catch (error) {
       console.error('Failed to fetch data', error);
     } finally {
@@ -42,9 +68,10 @@ const IssueDetail = () => {
     e.preventDefault();
     if (!newComment.trim()) return;
     try {
-      const added = await issueService.addComment(id, newComment);
+      const added = await issueService.addComment(id, newComment, isInternalComment);
       setComments([...comments, added]);
       setNewComment('');
+      setIsInternalComment(false);
     } catch (error) {
       console.error('Failed to add comment', error);
     }
@@ -61,6 +88,61 @@ const IssueDetail = () => {
     }
   };
 
+  const handleEscalate = async (e) => {
+    e.preventDefault();
+    try {
+      const updatedIssue = await issueService.escalate(id, escalateData.reason, escalateData.impactLevel, escalateData.evidence);
+      setIssue(updatedIssue);
+      setShowEscalate(false);
+      const commentsData = await issueService.getComments(id);
+      setComments(commentsData);
+    } catch (error) {
+      console.error('Failed to escalate', error);
+      alert(error.response?.data?.message || 'Failed to escalate issue');
+    }
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    try {
+      const results = await issueService.search(searchQuery);
+      // Filter out current issue
+      setSearchResults(results.filter(r => r.id !== issue.id));
+    } catch (error) {
+      console.error('Search failed', error);
+    }
+  };
+
+  const handleMerge = async () => {
+    if (!selectedPrimary) return;
+    try {
+      const updatedIssue = await issueService.merge(id, selectedPrimary.id);
+      setIssue(updatedIssue);
+      setShowMerge(false);
+      const commentsData = await issueService.getComments(id);
+      setComments(commentsData);
+    } catch (error) {
+      console.error('Failed to merge', error);
+      alert(error.response?.data?.message || 'Failed to merge issue');
+    }
+  };
+
+  const handleChangeStatus = async (newStatus) => {
+    try {
+      const updatedIssue = await issueService.changeStatus(id, newStatus);
+      setIssue(updatedIssue);
+      // Refresh comments and activities
+      const commentsData = await issueService.getComments(id);
+      setComments(commentsData);
+      const acts = await api.get(`/issues/${id}/activities`).then(res => res.data);
+      setActivities(acts);
+    } catch (error) {
+      console.error('Failed to change status', error);
+      alert(error.response?.data?.message || 'Failed to update status');
+    }
+  };
+
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -74,6 +156,67 @@ const IssueDetail = () => {
     }
   };
 
+  const openTriage = () => {
+    setTriageData({
+      type: issue.type || 'BUG',
+      priority: issue.priority || 'LOW',
+      severity: issue.severity || 'S4',
+      projectId: issue.project?.id || '',
+      labels: issue.labels ? issue.labels.join(', ') : ''
+    });
+    setShowTriage(true);
+  };
+
+  const handleTriageSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const updatedData = {
+        type: triageData.type,
+        priority: triageData.priority,
+        severity: triageData.severity,
+        projectId: triageData.projectId || null,
+        labels: triageData.labels.split(',').map(l => l.trim()).filter(l => l)
+      };
+      const updatedIssue = await issueService.update(id, updatedData);
+      setIssue(updatedIssue);
+      setShowTriage(false);
+      // Refresh comments to get the activity log if needed
+      const commentsData = await issueService.getComments(id);
+      setComments(commentsData);
+    } catch (error) {
+      console.error('Failed to triage issue', error);
+      alert('Failed to save triage data');
+    }
+  };
+
+  const handleQASubmit = async (e) => {
+    e.preventDefault();
+    if (!qaData.note.trim()) {
+      alert("Test note is required.");
+      return;
+    }
+    
+    try {
+      const qaPrefix = qaData.result === 'PASS' ? '[QA PASS]' : '[QA FAIL]';
+      const fullNote = `${qaPrefix} ${qaData.note}`;
+      
+      // Post the comment first
+      const addedComment = await issueService.addComment(id, fullNote);
+      
+      // Then change status
+      const nextStatus = qaData.result === 'PASS' ? 'RESOLVED' : 'IN_PROGRESS';
+      const updatedIssue = await issueService.changeStatus(id, nextStatus);
+      
+      setIssue(updatedIssue);
+      setShowQA(false);
+      setQaData({ result: 'PASS', note: '' });
+      setComments([...comments, addedComment]);
+    } catch (error) {
+      console.error('Failed to submit QA results', error);
+      alert('Failed to submit QA results');
+    }
+  };
+
   if (loading) return <div className="text-center p-8">Loading issue details...</div>;
   if (!issue) return <div className="text-center p-8 text-red-400">Issue not found.</div>;
 
@@ -82,23 +225,55 @@ const IssueDetail = () => {
       <div className="bg-surface p-6 rounded-xl border border-slate-700 shadow-xl">
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h2 className="text-3xl font-bold mb-2">{issue.title}</h2>
+            <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
+                {issue.title}
+                {issue.duplicateCount > 0 && (
+                    <span className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded border border-red-500/30 flex items-center gap-1">
+                        <Copy size={12} /> {issue.duplicateCount} Duplicates
+                    </span>
+                )}
+            </h2>
             <div className="flex gap-4 text-sm text-slate-400 items-center">
               <span className="flex items-center gap-1"><User size={14}/> {issue.creator?.name || issue.creator?.email}</span>
               <span className="flex items-center gap-1"><Clock size={14}/> {new Date(issue.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
           <div className="flex flex-col gap-2 items-end">
-             <span className="bg-slate-700 px-3 py-1 rounded text-sm font-medium">{issue.status.replace('_', ' ')}</span>
+             <span className="bg-slate-700 px-3 py-1 rounded text-sm font-medium flex items-center gap-2">
+                 {issue.status.replace('_', ' ')}
+                 {issue.status === 'CLOSED' && <Check size={14} className="text-emerald-400" />}
+             </span>
              <span className="text-xs font-bold text-slate-400">
                 {issue.type} | Priority: {issue.priority} | Severity: {issue.severity || 'NONE'} | Project: {issue.project?.name || 'Default'}
              </span>
           </div>
         </div>
         
-        <div className="prose prose-invert max-w-none mb-8">
+        <div className="prose prose-invert max-w-none mb-6">
           <p className="whitespace-pre-wrap">{issue.description || 'No description provided.'}</p>
         </div>
+
+        {(issue.customerEmail || issue.attachmentLink) && (
+          <div className="mb-8 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 text-sm">
+            <h4 className="text-slate-300 font-semibold mb-2 uppercase tracking-wide text-xs">Intake Information</h4>
+            <div className="space-y-2 text-slate-400">
+              {issue.customerEmail && (
+                <div className="flex gap-2">
+                  <span className="w-32 font-medium text-slate-500">Customer Email:</span>
+                  <a href={`mailto:${issue.customerEmail}`} className="text-primary hover:underline">{issue.customerEmail}</a>
+                </div>
+              )}
+              {issue.attachmentLink && (
+                <div className="flex gap-2">
+                  <span className="w-32 font-medium text-slate-500">Original Attachment:</span>
+                  <a href={issue.attachmentLink} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                    <Paperclip size={14} /> View External Attachment
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         <div className="border-t border-slate-700 pt-4 flex justify-between items-center text-sm">
            <div className="text-slate-400 flex items-center gap-2">
@@ -110,13 +285,267 @@ const IssueDetail = () => {
              >
                 <option value="" disabled>Unassigned</option>
                 {users
-                    .filter(user => user.role === 'DEVELOPER' || user.role === 'MAINTAINER')
+                    .filter(user => user.role === 'DEVELOPER' || user.role === 'QA' || user.role === 'ENGINEERING_MANAGER')
                     .map(user => (
                    <option key={user.id} value={user.id}>{user.name} ({user.role})</option>
                 ))}
              </select>
            </div>
+           <div className="flex gap-2">
+             <button 
+               onClick={openTriage}
+               className="btn-secondary text-xs px-3 py-1 border border-primary/50 text-primary hover:bg-primary/10 flex items-center gap-1"
+             >
+               <Edit3 size={14} /> Triage Issue
+             </button>
+             
+             {/* Dynamic Status Transition Buttons */}
+             {issue.status === 'NEW' && (
+                 <button onClick={() => handleChangeStatus('TRIAGED')} className="btn-secondary text-xs px-3 py-1 border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 flex items-center gap-1">
+                     <ArrowRightCircle size={14} /> Triage
+                 </button>
+             )}
+             {issue.status === 'ASSIGNED' && (
+                 <button onClick={() => handleChangeStatus('IN_PROGRESS')} className="btn-secondary text-xs px-3 py-1 border border-indigo-500/50 text-indigo-400 hover:bg-indigo-500/10 flex items-center gap-1">
+                     <PlayCircle size={14} /> Start Progress
+                 </button>
+             )}
+             {issue.status === 'IN_PROGRESS' && (
+                 <button onClick={() => handleChangeStatus('READY_FOR_QA')} className="btn-secondary text-xs px-3 py-1 border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 flex items-center gap-1">
+                     <ArrowRightCircle size={14} /> Ready for QA
+                 </button>
+             )}
+             {issue.status === 'READY_FOR_QA' && (
+                 <button onClick={() => setShowQA(true)} className="btn-secondary text-xs px-3 py-1 border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-1">
+                     <ShieldCheck size={14} /> Verify QA
+                 </button>
+             )}
+             {issue.status === 'RESOLVED' && (
+                 <button onClick={() => handleChangeStatus('CLOSED')} className="btn-secondary text-xs px-3 py-1 border border-slate-500/50 text-slate-300 hover:bg-slate-500/10 flex items-center gap-1">
+                     <XCircle size={14} /> Close
+                 </button>
+             )}
+             {issue.status === 'CLOSED' && (
+                 <button onClick={() => handleChangeStatus('REOPENED')} className="btn-secondary text-xs px-3 py-1 border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 flex items-center gap-1">
+                     <RefreshCcw size={14} /> Reopen
+                 </button>
+             )}
+             {['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS'].includes(issue.status) && (
+                 <button onClick={() => handleChangeStatus('CLOSED')} className="btn-secondary text-xs px-3 py-1 border border-slate-500/50 text-slate-400 hover:bg-slate-500/10 flex items-center gap-1" title="Close without resolving">
+                     <XCircle size={14} /> Close
+                 </button>
+             )}
+
+             {(issue.status === 'TRIAGED' || issue.status === 'NEW') && (
+               <button 
+                 onClick={() => setShowEscalate(!showEscalate)}
+                 className="btn-secondary text-xs px-3 py-1 border border-orange-500/50 text-orange-400 hover:bg-orange-500/10"
+               >
+                 Escalate Issue
+               </button>
+             )}
+             {issue.status !== 'CLOSED' && (
+               <button 
+                 onClick={() => setShowMerge(true)}
+                 className="btn-secondary text-xs px-3 py-1 border border-slate-500/50 text-slate-300 hover:bg-slate-500/10 flex items-center gap-1"
+               >
+                 <Copy size={14} /> Merge as Duplicate
+               </button>
+             )}
+           </div>
         </div>
+
+        {showEscalate && (
+          <form onSubmit={handleEscalate} className="mt-6 bg-[#22272e] p-4 rounded-lg border border-orange-500/30 shadow-inner">
+            <h4 className="text-orange-400 font-bold mb-3 text-sm uppercase tracking-wider flex items-center gap-2"><AlertTriangle size={16}/> Escalation Form</h4>
+            <div className="space-y-3">
+              <input type="text" placeholder="Reason for escalation" required className="input-field text-sm" value={escalateData.reason} onChange={e => setEscalateData({...escalateData, reason: e.target.value})} />
+              <select className="input-field text-sm" value={escalateData.impactLevel} onChange={e => setEscalateData({...escalateData, impactLevel: e.target.value})}>
+                <option value="LOW">Low Impact</option>
+                <option value="MEDIUM">Medium Impact</option>
+                <option value="HIGH">High Impact</option>
+                <option value="CRITICAL">Critical Impact</option>
+              </select>
+              <textarea placeholder="Evidence or context (logs, links, etc.)" required className="input-field text-sm" rows="2" value={escalateData.evidence} onChange={e => setEscalateData({...escalateData, evidence: e.target.value})} />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowEscalate(false)} className="text-slate-400 text-sm hover:text-white">Cancel</button>
+                <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold py-1.5 px-4 rounded shadow-md">Confirm Escalation</button>
+              </div>
+            </div>
+          </form>
+        )}
+
+        {/* Merge Modal */}
+        {showMerge && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                <div className="bg-surface border border-slate-700 rounded-xl shadow-2xl p-6 w-full max-w-2xl animate-in zoom-in-95">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <Copy size={20} className="text-primary" /> Merge Ticket
+                    </h2>
+                    <p className="text-sm text-slate-400 mb-4">Search for the primary ticket to merge this issue into. This issue will be closed as a duplicate.</p>
+                    
+                    <form onSubmit={handleSearch} className="flex gap-2 mb-6">
+                        <div className="relative flex-1">
+                            <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+                            <input 
+                                type="text" 
+                                placeholder="Search by title or keywords..." 
+                                className="input-field pl-9 text-sm w-full"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <button type="submit" className="btn-primary py-2 px-4 text-sm">Search</button>
+                    </form>
+
+                    <div className="max-h-64 overflow-y-auto space-y-2 mb-6 pr-2">
+                        {searchResults.length === 0 && searchQuery && <p className="text-sm text-slate-500 text-center py-4">No related issues found.</p>}
+                        {searchResults.map(res => (
+                            <div 
+                                key={res.id} 
+                                onClick={() => setSelectedPrimary(res)}
+                                className={`p-3 rounded border cursor-pointer transition-colors ${selectedPrimary?.id === res.id ? 'bg-primary/20 border-primary' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
+                            >
+                                <div className="flex justify-between items-start mb-1">
+                                    <h5 className="text-sm font-bold text-slate-200">#{res.id} - {res.title}</h5>
+                                    <span className="text-xs text-slate-400 bg-slate-700 px-2 py-0.5 rounded">{res.status}</span>
+                                </div>
+                                <p className="text-xs text-slate-400 line-clamp-1">{res.description}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
+                        <button type="button" onClick={() => setShowMerge(false)} className="btn-secondary">Cancel</button>
+                        <button 
+                            onClick={handleMerge} 
+                            disabled={!selectedPrimary}
+                            className={`btn-primary ${!selectedPrimary ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            Confirm Merge
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Triage Modal */}
+        {showTriage && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                <div className="bg-surface border border-slate-700 rounded-xl shadow-2xl p-6 w-full max-w-lg animate-in zoom-in-95">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <Edit3 size={20} className="text-primary" /> Triage Issue
+                    </h2>
+                    
+                    <form onSubmit={handleTriageSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Type</label>
+                            <select className="input-field text-sm" value={triageData.type} onChange={e => setTriageData({...triageData, type: e.target.value})}>
+                                <option value="BUG">BUG</option>
+                                <option value="FEATURE_REQUEST">FEATURE REQUEST</option>
+                                <option value="TASK">TASK</option>
+                                <option value="QUESTION">QUESTION</option>
+                                <option value="INCIDENT">INCIDENT</option>
+                            </select>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-slate-400 mb-1">Priority</label>
+                                <select className="input-field text-sm" value={triageData.priority} onChange={e => setTriageData({...triageData, priority: e.target.value})}>
+                                    <option value="LOW">LOW</option>
+                                    <option value="MEDIUM">MEDIUM</option>
+                                    <option value="HIGH">HIGH</option>
+                                    <option value="URGENT">URGENT</option>
+                                </select>
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-slate-400 mb-1">Severity</label>
+                                <select className="input-field text-sm" value={triageData.severity} onChange={e => setTriageData({...triageData, severity: e.target.value})}>
+                                    <option value="S4">S4 (Lowest)</option>
+                                    <option value="S3">S3</option>
+                                    <option value="S2">S2</option>
+                                    <option value="S1">S1 (Highest)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Project</label>
+                            <select className="input-field text-sm" value={triageData.projectId} onChange={e => setTriageData({...triageData, projectId: e.target.value})}>
+                                <option value="">-- No Project --</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Labels (comma separated)</label>
+                            <input 
+                                type="text" 
+                                className="input-field text-sm" 
+                                placeholder="e.g. frontend, urgent, customer_report"
+                                value={triageData.labels}
+                                onChange={e => setTriageData({...triageData, labels: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-700 mt-6">
+                            <button type="button" onClick={() => setShowTriage(false)} className="btn-secondary">Cancel</button>
+                            <button type="submit" className="btn-primary">Save Triage</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+
+        {/* QA Verification Modal */}
+        {showQA && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                <div className="bg-surface border border-slate-700 rounded-xl shadow-2xl p-6 w-full max-w-lg animate-in zoom-in-95">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <ShieldCheck size={20} className="text-emerald-400" /> QA Verification
+                    </h2>
+                    
+                    <form onSubmit={handleQASubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Test Result</label>
+                            <select 
+                                className={`input-field text-sm font-bold ${qaData.result === 'PASS' ? 'text-emerald-400' : 'text-red-400'}`}
+                                value={qaData.result} 
+                                onChange={e => setQaData({...qaData, result: e.target.value})}
+                            >
+                                <option value="PASS" className="text-emerald-400">PASS - Issue is resolved</option>
+                                <option value="FAIL" className="text-red-400">FAIL - Return to Developer</option>
+                            </select>
+                            {qaData.result === 'FAIL' && (
+                                <p className="text-xs text-red-400 mt-1">Status will be reverted to IN PROGRESS.</p>
+                            )}
+                            {qaData.result === 'PASS' && (
+                                <p className="text-xs text-emerald-400 mt-1">Status will be advanced to RESOLVED.</p>
+                            )}
+                        </div>
+                        
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Test Note (Required)</label>
+                            <textarea 
+                                className="input-field text-sm" 
+                                rows="4"
+                                placeholder="Describe the test environment, steps taken, and observations..."
+                                value={qaData.note}
+                                required
+                                onChange={e => setQaData({...qaData, note: e.target.value})}
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-700 mt-6">
+                            <button type="button" onClick={() => setShowQA(false)} className="btn-secondary">Cancel</button>
+                            <button type="submit" className={`btn-primary font-bold ${qaData.result === 'PASS' ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500' : 'bg-red-600 hover:bg-red-500 text-white border-red-500'}`}>
+                                Confirm {qaData.result}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
       </div>
 
       {/* Attachments Section */}
@@ -176,12 +605,15 @@ const IssueDetail = () => {
         
         <div className="space-y-4 mb-6">
           {comments.map(comment => (
-            <div key={comment.id} className="bg-slate-800 p-4 rounded border border-slate-700">
-              <div className="flex justify-between text-xs text-slate-400 mb-2">
-                <span className="font-medium text-slate-300">{comment.user.name}</span>
+            <div key={comment.id} className={`p-4 rounded border ${comment.isInternal ? 'bg-orange-950/30 border-orange-500/30' : 'bg-slate-800 border-slate-700'}`}>
+              <div className="flex justify-between items-start text-xs text-slate-400 mb-2">
+                <div className="flex items-center gap-2">
+                    <span className={`font-bold ${comment.isInternal ? 'text-orange-400' : 'text-slate-300'}`}>{comment.user.name}</span>
+                    {comment.isInternal && <span className="bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">Internal Note</span>}
+                </div>
                 <span>{new Date(comment.createdAt).toLocaleString()}</span>
               </div>
-              <p className="text-sm whitespace-pre-wrap">{comment.content}</p>
+              <p className={`text-sm whitespace-pre-wrap ${comment.isInternal ? 'text-orange-200/80' : 'text-slate-300'}`}>{comment.content}</p>
             </div>
           ))}
           {comments.length === 0 && <p className="text-slate-500 text-sm">No comments yet.</p>}
@@ -191,15 +623,58 @@ const IssueDetail = () => {
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
-            className="input-field mb-2"
+            className={`input-field mb-2 ${isInternalComment ? 'border-orange-500/50 bg-orange-950/10 focus:border-orange-400 focus:ring-orange-400' : ''}`}
             rows="3"
-            placeholder="Add a comment..."
+            placeholder={isInternalComment ? "Write an internal note (visible to staff only)... Type @email to mention someone." : "Add a public comment... Type @email to mention someone."}
             required
           />
-          <div className="flex justify-end">
-            <button type="submit" className="btn-primary text-sm">Comment</button>
+          <div className="flex justify-between items-center mt-2">
+            <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer hover:text-slate-300">
+                <input 
+                    type="checkbox" 
+                    className="rounded border-slate-600 bg-slate-800 text-orange-500 focus:ring-orange-500" 
+                    checked={isInternalComment}
+                    onChange={e => setIsInternalComment(e.target.checked)}
+                />
+                <span className={isInternalComment ? 'text-orange-400 font-medium' : ''}>Mark as Internal Note</span>
+            </label>
+            <button type="submit" className={`font-bold py-2 px-4 rounded text-sm transition-colors shadow-lg text-white ${isInternalComment ? 'bg-orange-600 hover:bg-orange-500' : 'bg-primary hover:bg-primary-hover'}`}>
+                {isInternalComment ? 'Save Note' : 'Post Comment'}
+            </button>
           </div>
         </form>
+      </div>
+
+      {/* History / Audit Trail Section */}
+      <div className="bg-surface p-6 rounded-xl border border-slate-700 shadow-xl mt-6">
+        <h3 className="text-xl font-bold flex items-center gap-2 mb-6">
+          <Clock size={20} /> History & Audit Trail
+        </h3>
+        {activities.length === 0 ? (
+            <p className="text-slate-500 text-sm">No history available.</p>
+        ) : (
+            <div className="relative border-l border-slate-700 ml-3 space-y-6">
+                {activities.map(activity => (
+                    <div key={activity.id} className="relative pl-6">
+                        <div className="absolute w-3 h-3 bg-primary rounded-full -left-1.5 top-1.5 ring-4 ring-surface"></div>
+                        <p className="text-sm">
+                            <span className="font-bold text-slate-300">{activity.user.name}</span>{' '}
+                            <span className="text-slate-400">
+                                {activity.action === 'STATUS_CHANGE' && `changed status from ${activity.oldValue} to ${activity.newValue}`}
+                                {activity.action === 'ASSIGNEE_CHANGE' && `reassigned issue from ${activity.oldValue || 'Unassigned'} to ${activity.newValue}`}
+                                {activity.action === 'ISSUE_UPDATE' && `updated issue fields`}
+                                {activity.action === 'PRIORITY_CHANGE' && `changed priority from ${activity.oldValue} to ${activity.newValue}`}
+                                {activity.action === 'LABEL_ADD' && `added label ${activity.newValue}`}
+                                {activity.action === 'LABEL_REMOVE' && `removed label ${activity.oldValue}`}
+                                {activity.action === 'ISSUE_CREATE' && `created the issue`}
+                                {activity.action === 'COMMENT_ADD' && `added a comment`}
+                            </span>
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">{new Date(activity.createdAt).toLocaleString()}</p>
+                    </div>
+                ))}
+            </div>
+        )}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { CreateReport } from './pages/CreateReport';
 import { ReportDetail } from './pages/ReportDetail';
 import { UserManagement } from './pages/UserManagement';
 import { ImportPage } from './pages/ImportPage';
+import { Notifications } from './pages/Notifications';
 import './index.css';
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
                 <Route path="/reports/:id" element={<ReportDetail />} />
                 <Route path="/import" element={<ImportPage />} />
                 <Route path="/users" element={<UserManagement />} />
+                <Route path="/notifications" element={<Notifications />} />
               </Route>
               
               {/* Fallback */}

@@ -29,7 +29,7 @@ public class ProjectController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MAINTAINER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProjectDto> createProject(@RequestParam String name, @RequestParam(required = false) String description) {
         return ResponseEntity.ok(projectService.createProject(name, description));
     }

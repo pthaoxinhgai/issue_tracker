@@ -20,7 +20,7 @@ public class ImportController {
     private final UserRepository userRepository;
 
     @PostMapping("/import")
-    @PreAuthorize("hasAnyRole('SUPPORT_STAFF', 'ADMIN', 'REPORTER', 'MAINTAINER')")
+    @PreAuthorize("hasAnyRole('SUPPORT_STAFF', 'ADMIN')")
     public ResponseEntity<ImportResultDto> importIssues(@RequestParam("file") MultipartFile file) {
         String email = SecurityUtils.getCurrentUserEmail();
         User currentUser = null;

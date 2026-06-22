@@ -14,4 +14,8 @@ public interface IssueService {
     List<IssueDto> filterIssues(com.issuetracker.backend.domain.enums.IssueStatus status, Long assigneeId, com.issuetracker.backend.domain.enums.Priority priority);
     IssueDto addLabel(Long issueId, String label);
     IssueDto removeLabel(Long issueId, String label);
+    IssueDto escalateIssue(Long issueId, String reason, String impactLevel, String evidence);
+    IssueDto linkIssues(Long sourceId, Long targetId, String linkType);
+    List<IssueDto> searchIssues(String query);
+    IssueDto mergeDuplicate(Long duplicateId, Long primaryId);
 }
