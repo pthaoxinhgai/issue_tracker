@@ -21,6 +21,16 @@ public class DatabaseFixer {
             jdbcTemplate.execute("UPDATE issues SET status='READY_FOR_QA' WHERE status='REVIEW'");
             jdbcTemplate.execute("UPDATE issues SET status='RESOLVED' WHERE status='DONE'");
             
+            try {
+                jdbcTemplate.execute("ALTER TABLE users DROP COLUMN role_id");
+            } catch (Exception e) {
+                try {
+                    jdbcTemplate.execute("ALTER TABLE users MODIFY role_id BIGINT NULL");
+                } catch (Exception ex) {
+                    System.err.println("Could not drop or modify role_id: " + ex.getMessage());
+                }
+            }
+            
             // Phase 9 migrations
             jdbcTemplate.execute("UPDATE issues SET type='FEATURE_REQUEST' WHERE type='FEATURE'");
             jdbcTemplate.execute("UPDATE issues SET priority='URGENT' WHERE priority='CRITICAL'");
