@@ -16,6 +16,7 @@ export const ReportDetail = () => {
     const [newComment, setNewComment] = useState('');
     const [loading, setLoading] = useState(true);
     const [isCreatingIssue, setIsCreatingIssue] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     
     // For creating issue
     const [issueData, setIssueData] = useState({
@@ -95,6 +96,23 @@ export const ReportDetail = () => {
         }
     };
 
+    const handleDeleteReport = async () => {
+        if (!window.confirm('Are you sure you want to undo this import? This will soft-delete the report and all associated issues. This action cannot be easily reversed via UI.')) {
+            return;
+        }
+        try {
+            setIsDeleting(true);
+            await reportService.deleteReport(id);
+            alert('Import successfully undone (soft deleted).');
+            navigate('/reports');
+        } catch (error) {
+            console.error('Failed to delete report', error);
+            alert('Failed to delete report');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const getStatusColor = (status) => {
         const colors = {
             'NEW': 'bg-blue-100 text-blue-800',
@@ -140,10 +158,21 @@ export const ReportDetail = () => {
                             <span className="flex items-center gap-1.5"><Clock size={16}/> {new Date(report.createdAt).toLocaleString()}</span>
                         </div>
                     </div>
-                    {user?.role === 'MAINTAINER' && (
-                        <div className="flex flex-col gap-2">
-                            <select 
-                                value={report.status}
+                    <div className="flex gap-2">
+                        {user?.role === 'ADMIN' && report.title.startsWith('Batch Import') && (
+                            <button
+                                onClick={handleDeleteReport}
+                                disabled={isDeleting}
+                                className="btn-secondary py-1.5 text-sm flex items-center justify-center gap-1.5 bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+                            >
+                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                Undo Import
+                            </button>
+                        )}
+                        {user?.role === 'MAINTAINER' && (
+                            <div className="flex flex-col gap-2">
+                                <select 
+                                    value={report.status}
                                 onChange={(e) => handleStatusChange(e.target.value)}
                                 className="input-field py-1 text-sm bg-gray-50"
                             >
@@ -161,6 +190,7 @@ export const ReportDetail = () => {
                             </button>
                         </div>
                     )}
+                    </div>
                 </div>
                 
                 <div className="prose max-w-none mb-4 p-4 bg-gray-50 rounded-lg border border-gray-100">

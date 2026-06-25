@@ -1,0 +1,3 @@
+title,description,type,priority,labels,customer email,project,impact,attachment link
+"Login not working","User cannot login with valid credentials","BUG","HIGH","login, authentication","customer@example.com","","S2",""
+"Add export button","Users need a way to export dashboard data to CSV","FEATURE_REQUEST","LOW","frontend, ui","","","",""

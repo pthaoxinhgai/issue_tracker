@@ -1,0 +1,12 @@
+title,description,type,priority,labels,customer email,project,impact,attachment link
+"Login button is broken","When the user clicks the login button, the system returns a 500 error.","BUG","HIGH","frontend, login, critical","user1@example.com","Default Project","S2","https://example.com/log.png"
+"Add PDF report export feature","Customer requested a button to download PDF in the Reports page.","FEATURE_REQUEST","MEDIUM","backend, enhancement","client@company.com","Default Project","",""
+"Update API documentation","The current API documentation is missing the payment section.","TASK","LOW","docs, api","","","S4",""
+"Complete system outage","No one can access the website. Needs immediate action!","INCIDENT","URGENT","server, crash, urgent","admin@domain.com","Default Project","S1",""
+"How to change my password?","Customer cannot find the change password button.","QUESTION","LOW","support, ui","confused@user.com","","S4",""
+"UI broken on Mobile","The homepage layout overflows when viewed on iPhone 13.","BUG","MEDIUM","css, mobile, ui","","Default Project","S3","https://example.com/screenshot.jpg"
+"Need to optimize page load speed","The product list page takes 5 seconds to load.","TASK","HIGH","performance, database","","Default Project","S2",""
+"","Intentionally missing title to test if import reports an error","BUG","LOW","test","","","",""
+"Intentionally wrong issue type","Testing issue type validation error","INVALID_TYPE","LOW","test","","","",""
+"Intentionally wrong priority","Testing priority validation error","TASK","SUPER_HIGH","test","","","",""
+"Periodic report is broken","The cron job for daily reports at midnight is not running","BUG","HIGH","backend, cron","cron-alert@system.com","Default Project","S2",""

@@ -26,6 +26,11 @@ export const reportService = {
     return response.data;
   },
 
+  deleteReport: async (id) => {
+    const response = await api.delete(`/reports/${id}`);
+    return response.data;
+  },
+
   createIssueFromReport: async (id, issueData) => {
     const response = await api.post(`/reports/${id}/issues`, issueData);
     return response.data;

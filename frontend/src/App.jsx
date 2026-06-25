@@ -30,9 +30,6 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/board" element={<Kanban />} />
                 <Route path="/issue/:id" element={<IssueDetail />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/reports/new" element={<CreateReport />} />
-                <Route path="/reports/:id" element={<ReportDetail />} />
                 <Route path="/import" element={<ImportPage />} />
                 <Route path="/users" element={<UserManagement />} />
                 <Route path="/notifications" element={<Notifications />} />

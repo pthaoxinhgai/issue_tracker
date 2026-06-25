@@ -22,7 +22,7 @@ public class IssueSecurityService {
         User user = (User) authentication.getPrincipal();
         Role role = user.getRole();
 
-        if (role == Role.ADMIN || role == Role.SUPPORT_STAFF || role == Role.PRODUCT_OWNER || role == Role.ENGINEERING_MANAGER) {
+        if (role == Role.SUPPORT_STAFF || role == Role.PRODUCT_OWNER || role == Role.ENGINEERING_MANAGER) {
             return true;
         }
 

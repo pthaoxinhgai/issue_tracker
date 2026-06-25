@@ -35,7 +35,7 @@ export const IssueDetailModal = ({ issueId, onClose }) => {
             setActivities(activitiesData);
             setAttachments(attachmentsData);
             
-            if (hasRole(['MAINTAINER'])) {
+            if (hasRole(['PRODUCT_OWNER', 'ENGINEERING_MANAGER'])) {
                 const usersData = await getAllUsers();
                 setUsers(usersData);
             }
@@ -106,15 +106,29 @@ export const IssueDetailModal = ({ issueId, onClose }) => {
                 {/* Header */}
                 <div className="p-6 border-b border-gray-200 flex justify-between items-start sticky top-0 bg-white z-10">
                     <div>
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
                             <span className="text-sm font-semibold text-gray-500">#{issue.id}</span>
                             <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-bold">{issue.status}</span>
                             <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded text-xs font-bold">{issue.priority}</span>
+                            {issue.type && <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">{issue.type}</span>}
+                            {issue.severity && <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs font-bold">{issue.severity}</span>}
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-900">{issue.title}</h2>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">{issue.title}</h2>
+                        <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                            {issue.project && <span><strong>Project:</strong> {issue.project.name}</span>}
+                            {issue.createdAt && <span><strong>Created:</strong> {new Date(issue.createdAt).toLocaleString()}</span>}
+                            {issue.updatedAt && <span><strong>Updated:</strong> {new Date(issue.updatedAt).toLocaleString()}</span>}
+                            {issue.problemReport && <span><strong>From Report:</strong> #{issue.problemReport.id} - {issue.problemReport.title}</span>}
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {hasRole(['MAINTAINER']) && (
+                        <button 
+                            onClick={() => navigate(`/issue/${issue.id}`)} 
+                            className="btn-secondary text-xs px-3 py-1 flex items-center gap-1 border border-primary/50 text-primary hover:bg-primary/10 mr-2"
+                        >
+                            View Full Details & Actions
+                        </button>
+                        {hasRole(['ADMIN']) && (
                             <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
                                 <Trash2 className="h-5 w-5" />
                             </button>
@@ -139,7 +153,7 @@ export const IssueDetailModal = ({ issueId, onClose }) => {
                         </div>
                         <div>
                             <span className="block text-xs font-semibold text-gray-500 mb-1">ASSIGNEE</span>
-                            {hasRole(['MAINTAINER']) ? (
+                            {hasRole(['PRODUCT_OWNER', 'ENGINEERING_MANAGER']) ? (
                                 <select 
                                     className="text-sm bg-gray-50 border border-gray-200 rounded p-1"
                                     value={issue.assignee?.id || ''}
@@ -147,7 +161,7 @@ export const IssueDetailModal = ({ issueId, onClose }) => {
                                 >
                                     <option value="">Unassigned</option>
                                     {users
-                                        .filter(u => u.role === 'DEVELOPER' || u.role === 'MAINTAINER')
+                                        .filter(u => u.role === 'DEVELOPER' || u.role === 'QA')
                                         .map(u => (
                                         <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
                                     ))}
@@ -165,7 +179,7 @@ export const IssueDetailModal = ({ issueId, onClose }) => {
                                 <Paperclip className="h-4 w-4 text-gray-500" />
                                 Attachments
                             </h3>
-                            {hasRole(['REPORTER', 'DEVELOPER', 'MAINTAINER']) && (
+                            {hasRole(['SUPPORT_STAFF', 'PRODUCT_OWNER', 'ENGINEERING_MANAGER', 'DEVELOPER', 'QA', 'ADMIN']) && (
                                 <div>
                                     <input 
                                         type="file" 
@@ -234,7 +248,7 @@ export const IssueDetailModal = ({ issueId, onClose }) => {
                                 ))}
                             </div>
                             
-                            {hasRole(['REPORTER', 'DEVELOPER', 'MAINTAINER']) && (
+                            {hasRole(['SUPPORT_STAFF', 'PRODUCT_OWNER', 'ENGINEERING_MANAGER', 'DEVELOPER', 'QA', 'ADMIN']) && (
                                 <form onSubmit={handleAddComment} className="mt-4 flex gap-2">
                                     <input 
                                         type="text"

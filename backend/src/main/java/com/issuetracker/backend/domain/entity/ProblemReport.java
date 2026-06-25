@@ -6,11 +6,16 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
 @Table(name = "problem_reports")
+@SQLDelete(sql = "UPDATE problem_reports SET is_deleted = true WHERE id=?")
+@SQLRestriction("is_deleted = false")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -44,4 +49,8 @@ public class ProblemReport {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Column(name = "is_deleted")
+    @Builder.Default
+    private boolean isDeleted = false;
 }

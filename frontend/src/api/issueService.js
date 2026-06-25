@@ -25,6 +25,10 @@ export const issueService = {
     const response = await api.get(`/issues/${id}/comments`);
     return response.data;
   },
+  getActivities: async (id) => {
+    const response = await api.get(`/issues/${id}/activities`);
+    return response.data;
+  },
   addComment: async (id, content, isInternal = false) => {
     const response = await api.post(`/issues/${id}/comments`, { content, isInternal });
     return response.data;

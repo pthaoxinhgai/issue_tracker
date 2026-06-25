@@ -54,7 +54,11 @@ public class SecurityConfig {
                     auth.requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/attachments/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/users/debug").permitAll()
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED))
                 );
 
         http.authenticationProvider(authenticationProvider());

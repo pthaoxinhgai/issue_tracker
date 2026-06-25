@@ -48,14 +48,14 @@ const KanbanBoard = () => {
     }
 
     // Dynamic restriction based on column config
-    const sourceCol = columns.find(c => c.status === sourceStatus);
+    const sourceCol = columns.find(c => c.id === sourceStatus);
     const isValidTransition = (destStatus === sourceCol.next || destStatus === sourceCol.prev);
 
     if (!isValidTransition) {
       return;
     }
 
-    const newStatus = destStatus;
+    const newStatus = destStatus === 'TODO' ? 'ASSIGNED' : destStatus;
     
     // Optimistic update
     const updatedIssues = issues.map(issue => 
@@ -72,11 +72,11 @@ const KanbanBoard = () => {
   };
 
   const columns = [
-    { title: 'To Do', status: 'ASSIGNED', next: 'IN_PROGRESS', prev: null, bg: 'bg-[#1c2128]', border: 'border-slate-500/30' },
-    { title: 'In Progress', status: 'IN_PROGRESS', next: 'READY_FOR_QA', prev: 'ASSIGNED', bg: 'bg-[#1c2128]', border: 'border-blue-500/30' },
-    { title: 'Ready for QA', status: 'READY_FOR_QA', next: 'RESOLVED', prev: 'IN_PROGRESS', bg: 'bg-[#1c2128]', border: 'border-purple-500/30' },
-    { title: 'Resolved', status: 'RESOLVED', next: 'CLOSED', prev: 'READY_FOR_QA', bg: 'bg-[#1c2128]', border: 'border-yellow-500/30' },
-    { title: 'Closed', status: 'CLOSED', next: null, prev: 'RESOLVED', bg: 'bg-[#1c2128]', border: 'border-green-500/30', isDone: true }
+    { id: 'TODO', title: 'To Do', statuses: ['ASSIGNED', 'REOPENED'], next: 'IN_PROGRESS', prev: null, bg: 'bg-[#1c2128]', border: 'border-slate-500/30' },
+    { id: 'IN_PROGRESS', title: 'In Progress', statuses: ['IN_PROGRESS'], next: 'READY_FOR_QA', prev: 'TODO', bg: 'bg-[#1c2128]', border: 'border-blue-500/30' },
+    { id: 'READY_FOR_QA', title: 'Ready for QA', statuses: ['READY_FOR_QA'], next: 'RESOLVED', prev: 'IN_PROGRESS', bg: 'bg-[#1c2128]', border: 'border-purple-500/30' },
+    { id: 'RESOLVED', title: 'Resolved', statuses: ['RESOLVED'], next: 'CLOSED', prev: 'READY_FOR_QA', bg: 'bg-[#1c2128]', border: 'border-yellow-500/30' },
+    { id: 'CLOSED', title: 'Closed', statuses: ['CLOSED'], next: null, prev: 'RESOLVED', bg: 'bg-[#1c2128]', border: 'border-green-500/30', isDone: true }
   ];
 
   if (loading) return <div className="text-center p-12 text-slate-500 text-sm">Loading Kanban Board...</div>;
@@ -94,15 +94,15 @@ const KanbanBoard = () => {
         <div className="flex-1">
           <div className="flex gap-5 h-full">
             {columns.map(col => {
-              const colIssues = issues.filter(i => i.status === col.status);
+              const colIssues = issues.filter(i => col.statuses.includes(i.status));
               return (
-                <div key={col.status} className={`flex-1 min-w-[250px] ${col.bg} rounded-lg flex flex-col border border-border shadow-md`}>
+                <div key={col.id} className={`flex-1 min-w-[250px] ${col.bg} rounded-lg flex flex-col border border-border shadow-md`}>
                   <div className={`px-4 py-3 flex justify-between items-center border-b border-border bg-[#22272e] rounded-t-lg`}>
                     <span className="text-sm font-bold uppercase tracking-wider text-slate-400">{col.title}</span>
                     <span className="bg-[#313d4a] text-xs px-2 py-0.5 rounded text-slate-300 font-mono font-bold">{colIssues.length}</span>
                   </div>
                   
-                  <Droppable droppableId={col.status}>
+                  <Droppable droppableId={col.id}>
                     {(provided, snapshot) => (
                       <div 
                         {...provided.droppableProps}

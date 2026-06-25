@@ -36,6 +36,7 @@ public class IssueServiceImpl implements IssueService {
     private final com.issuetracker.backend.service.NotificationService notificationService;
     private final com.issuetracker.backend.repository.ProjectRepository projectRepository;
     private final com.issuetracker.backend.repository.IssueLinkRepository issueLinkRepository;
+    private final com.issuetracker.backend.repository.ActivityLogRepository activityLogRepository;
 
     @jakarta.annotation.PostConstruct
     public void initDefaultProject() {
@@ -66,6 +67,12 @@ public class IssueServiceImpl implements IssueService {
     public IssueDto getIssueById(Long id) {
         Issue issue = issueRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Issue not found"));
+        User currentUser = getCurrentUser();
+        if (currentUser.getRole() == com.issuetracker.backend.domain.enums.Role.DEVELOPER || currentUser.getRole() == com.issuetracker.backend.domain.enums.Role.QA) {
+            if (issue.getAssignee() == null || !issue.getAssignee().getId().equals(currentUser.getId())) {
+                throw new RuntimeException("Access Denied: You are not assigned to this issue");
+            }
+        }
         return mapToDto(issue);
     }
 
@@ -190,7 +197,7 @@ public class IssueServiceImpl implements IssueService {
                 issue.getId());
         }
 
-        if (issue.getStatus() == IssueStatus.TRIAGED || issue.getStatus() == IssueStatus.ESCALATED || issue.getStatus() == IssueStatus.REOPENED) {
+        if (issue.getStatus() == IssueStatus.NEW || issue.getStatus() == IssueStatus.TRIAGED || issue.getStatus() == IssueStatus.ESCALATED || issue.getStatus() == IssueStatus.REOPENED) {
             issueStateMachine.validateTransition(issue.getStatus(), IssueStatus.ASSIGNED);
             activityLogService.logActivity(issue, currentUser, ActivityAction.STATUS_CHANGE, issue.getStatus().name(), IssueStatus.ASSIGNED.name());
             issue.setStatus(IssueStatus.ASSIGNED);
@@ -204,31 +211,61 @@ public class IssueServiceImpl implements IssueService {
                 .orElseThrow(() -> new RuntimeException("Issue not found"));
 
         if (issue.getStatus() != newStatus) {
-            issueStateMachine.validateTransition(issue.getStatus(), newStatus);
+            IssueStatus oldStatus = issue.getStatus();
+            issueStateMachine.validateTransition(oldStatus, newStatus);
             User currentUser = getCurrentUser();
-            activityLogService.logActivity(issue, currentUser, ActivityAction.STATUS_CHANGE, issue.getStatus().name(), newStatus.name());
+            
+            activityLogService.logActivity(issue, currentUser, ActivityAction.STATUS_CHANGE, oldStatus.name(), newStatus.name());
             issue.setStatus(newStatus);
-            issue = issueRepository.save(issue);
             
             // Notification on status change
             String message = currentUser.getName() + " changed status to " + newStatus.name() + " on Issue #" + issue.getId();
-            if (issue.getAssignee() != null && !issue.getAssignee().getId().equals(currentUser.getId())) {
-                notificationService.createNotification(issue.getAssignee(), message, issue.getId());
+            
+            // Auto-assign back to Developer if QA rejects
+            if (oldStatus == IssueStatus.READY_FOR_QA && newStatus == IssueStatus.IN_PROGRESS) {
+                List<com.issuetracker.backend.domain.entity.ActivityLog> logs = activityLogRepository.findByIssueIdOrderByCreatedAtDesc(issueId);
+                User previousDev = null;
+                for (com.issuetracker.backend.domain.entity.ActivityLog log : logs) {
+                    if (log.getAction() == ActivityAction.STATUS_CHANGE && "READY_FOR_QA".equals(log.getNewValue())) {
+                        previousDev = log.getUser();
+                        break;
+                    }
+                }
+                
+                if (previousDev != null && !previousDev.getId().equals(currentUser.getId())) {
+                    String oldAssigneeStr = issue.getAssignee() != null ? issue.getAssignee().getEmail() : "Unassigned";
+                    issue.setAssignee(previousDev);
+                    activityLogService.logActivity(issue, currentUser, ActivityAction.ASSIGNEE_CHANGE, oldAssigneeStr, previousDev.getEmail());
+                    notificationService.createNotification(previousDev, 
+                        currentUser.getName() + " rejected Issue #" + issue.getId() + " and assigned it back to you.", 
+                        issue.getId());
+                } else if (issue.getAssignee() != null && !issue.getAssignee().getId().equals(currentUser.getId())) {
+                    notificationService.createNotification(issue.getAssignee(), message, issue.getId());
+                }
+            } else {
+                if (issue.getAssignee() != null && !issue.getAssignee().getId().equals(currentUser.getId())) {
+                    notificationService.createNotification(issue.getAssignee(), message, issue.getId());
+                }
             }
+
             if (issue.getCreator() != null && !issue.getCreator().getId().equals(currentUser.getId()) &&
                (issue.getAssignee() == null || !issue.getCreator().getId().equals(issue.getAssignee().getId()))) {
                 notificationService.createNotification(issue.getCreator(), message, issue.getId());
             }
+
+            issue = issueRepository.save(issue);
         }
         return mapToDto(issue);
     }
-
     public List<IssueDto> filterIssues(IssueStatus status, Long assigneeId, Priority priority) {
+        User currentUser = getCurrentUser();
+        if (currentUser.getRole() == com.issuetracker.backend.domain.enums.Role.DEVELOPER || currentUser.getRole() == com.issuetracker.backend.domain.enums.Role.QA) {
+            assigneeId = currentUser.getId();
+        }
         return issueRepository.findFilteredIssues(status, assigneeId, priority).stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
     }
-
     public IssueDto addLabel(Long issueId, String label) {
         Issue issue = issueRepository.findById(issueId)
                 .orElseThrow(() -> new RuntimeException("Issue not found"));

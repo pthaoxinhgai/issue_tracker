@@ -16,7 +16,7 @@ public class IssueStateMachine {
     public IssueStateMachine() {
         transitionMatrix = new EnumMap<>(IssueStatus.class);
 
-        transitionMatrix.put(IssueStatus.NEW, EnumSet.of(IssueStatus.TRIAGED, IssueStatus.CLOSED));
+        transitionMatrix.put(IssueStatus.NEW, EnumSet.of(IssueStatus.TRIAGED, IssueStatus.ASSIGNED, IssueStatus.CLOSED));
         transitionMatrix.put(IssueStatus.TRIAGED, EnumSet.of(IssueStatus.ESCALATED, IssueStatus.ASSIGNED, IssueStatus.CLOSED));
         transitionMatrix.put(IssueStatus.ESCALATED, EnumSet.of(IssueStatus.ASSIGNED, IssueStatus.CLOSED));
         transitionMatrix.put(IssueStatus.ASSIGNED, EnumSet.of(IssueStatus.IN_PROGRESS, IssueStatus.CLOSED));

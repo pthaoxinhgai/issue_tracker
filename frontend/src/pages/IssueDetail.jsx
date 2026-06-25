@@ -48,8 +48,8 @@ const IssueDetail = () => {
         issueService.getById(id),
         issueService.getComments(id),
         getAttachments(id),
-        userService.getAll(),
-        api.get(`/issues/${id}/activities`).then(res => res.data).catch(() => [])
+        userService.getAll().catch(() => []),
+        issueService.getActivities(id).catch(() => [])
       ]);
       setIssue(issueData);
       setComments(commentsData);
@@ -135,7 +135,7 @@ const IssueDetail = () => {
       // Refresh comments and activities
       const commentsData = await issueService.getComments(id);
       setComments(commentsData);
-      const acts = await api.get(`/issues/${id}/activities`).then(res => res.data);
+      const acts = await issueService.getActivities(id);
       setActivities(acts);
     } catch (error) {
       console.error('Failed to change status', error);
@@ -222,50 +222,58 @@ const IssueDetail = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-surface p-6 rounded-xl border border-slate-700 shadow-xl">
+      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
+            <h2 className="text-3xl font-bold mb-2 flex items-center gap-3 text-gray-900">
                 {issue.title}
                 {issue.duplicateCount > 0 && (
-                    <span className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded border border-red-500/30 flex items-center gap-1">
+                    <span className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded border border-red-200 flex items-center gap-1">
                         <Copy size={12} /> {issue.duplicateCount} Duplicates
                     </span>
                 )}
             </h2>
-            <div className="flex gap-4 text-sm text-slate-400 items-center">
+            <div className="flex gap-4 text-sm text-gray-500 items-center">
               <span className="flex items-center gap-1"><User size={14}/> {issue.creator?.name || issue.creator?.email}</span>
               <span className="flex items-center gap-1"><Clock size={14}/> {new Date(issue.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
           <div className="flex flex-col gap-2 items-end">
-             <span className="bg-slate-700 px-3 py-1 rounded text-sm font-medium flex items-center gap-2">
+             <span className="bg-gray-100 px-3 py-1 rounded text-sm font-medium flex items-center gap-2 text-gray-800">
                  {issue.status.replace('_', ' ')}
-                 {issue.status === 'CLOSED' && <Check size={14} className="text-emerald-400" />}
+                 {issue.status === 'CLOSED' && <Check size={14} className="text-emerald-500" />}
              </span>
-             <span className="text-xs font-bold text-slate-400">
+             <span className="text-xs font-bold text-gray-500">
                 {issue.type} | Priority: {issue.priority} | Severity: {issue.severity || 'NONE'} | Project: {issue.project?.name || 'Default'}
              </span>
+             {issue.status !== 'CLOSED' && issue.status !== 'RESOLVED' && (
+               <button 
+                 onClick={() => setShowEscalate(!showEscalate)}
+                 className="mt-2 btn-secondary text-xs px-4 py-1.5 border-2 border-orange-500 text-orange-400 hover:bg-orange-500 hover:text-white font-bold transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(249,115,22,0.3)] animate-pulse"
+               >
+                 <AlertTriangle size={16} /> ESCALATE ISSUE
+               </button>
+             )}
           </div>
         </div>
         
-        <div className="prose prose-invert max-w-none mb-6">
+        <div className="prose max-w-none mb-6 text-gray-700">
           <p className="whitespace-pre-wrap">{issue.description || 'No description provided.'}</p>
         </div>
 
         {(issue.customerEmail || issue.attachmentLink) && (
-          <div className="mb-8 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 text-sm">
-            <h4 className="text-slate-300 font-semibold mb-2 uppercase tracking-wide text-xs">Intake Information</h4>
-            <div className="space-y-2 text-slate-400">
+          <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm">
+            <h4 className="text-gray-700 font-semibold mb-2 uppercase tracking-wide text-xs">Intake Information</h4>
+            <div className="space-y-2 text-gray-600">
               {issue.customerEmail && (
                 <div className="flex gap-2">
-                  <span className="w-32 font-medium text-slate-500">Customer Email:</span>
+                  <span className="w-32 font-medium text-gray-500">Customer Email:</span>
                   <a href={`mailto:${issue.customerEmail}`} className="text-primary hover:underline">{issue.customerEmail}</a>
                 </div>
               )}
               {issue.attachmentLink && (
                 <div className="flex gap-2">
-                  <span className="w-32 font-medium text-slate-500">Original Attachment:</span>
+                  <span className="w-32 font-medium text-gray-500">Original Attachment:</span>
                   <a href={issue.attachmentLink} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-1">
                     <Paperclip size={14} /> View External Attachment
                   </a>
@@ -275,21 +283,25 @@ const IssueDetail = () => {
           </div>
         )}
         
-        <div className="border-t border-slate-700 pt-4 flex justify-between items-center text-sm">
-           <div className="text-slate-400 flex items-center gap-2">
+        <div className="border-t border-gray-200 pt-4 flex justify-between items-center text-sm">
+           <div className="text-gray-600 flex items-center gap-2">
              Assignee: 
-             <select 
-                value={issue.assignee?.id || ''} 
-                onChange={handleAssign}
-                className="bg-slate-800 border border-slate-700 text-white text-sm rounded focus:ring-primary focus:border-primary block p-1"
-             >
-                <option value="" disabled>Unassigned</option>
-                {users
-                    .filter(user => user.role === 'DEVELOPER' || user.role === 'QA' || user.role === 'ENGINEERING_MANAGER')
-                    .map(user => (
-                   <option key={user.id} value={user.id}>{user.name} ({user.role})</option>
-                ))}
-             </select>
+             {users.length > 0 ? (
+                 <select 
+                    value={issue.assignee?.id || ''} 
+                    onChange={handleAssign}
+                    className="bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-primary focus:border-primary block p-1"
+                 >
+                    <option value="" disabled>Unassigned</option>
+                    {users
+                        .filter(user => user.role === 'DEVELOPER' || user.role === 'QA' || user.role === 'ENGINEERING_MANAGER')
+                        .map(user => (
+                       <option key={user.id} value={user.id}>{user.name} ({user.role})</option>
+                    ))}
+                 </select>
+             ) : (
+                 <span className="font-semibold text-gray-900">{issue.assignee?.name || 'Unassigned'}</span>
+             )}
            </div>
            <div className="flex gap-2">
              <button 
@@ -331,23 +343,16 @@ const IssueDetail = () => {
                  </button>
              )}
              {['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS'].includes(issue.status) && (
-                 <button onClick={() => handleChangeStatus('CLOSED')} className="btn-secondary text-xs px-3 py-1 border border-slate-500/50 text-slate-400 hover:bg-slate-500/10 flex items-center gap-1" title="Close without resolving">
+                 <button onClick={() => handleChangeStatus('CLOSED')} className="btn-secondary text-xs px-3 py-1 border border-gray-400 text-gray-600 hover:bg-gray-100 flex items-center gap-1" title="Close without resolving">
                      <XCircle size={14} /> Close
                  </button>
              )}
 
-             {(issue.status === 'TRIAGED' || issue.status === 'NEW') && (
-               <button 
-                 onClick={() => setShowEscalate(!showEscalate)}
-                 className="btn-secondary text-xs px-3 py-1 border border-orange-500/50 text-orange-400 hover:bg-orange-500/10"
-               >
-                 Escalate Issue
-               </button>
-             )}
+
              {issue.status !== 'CLOSED' && (
                <button 
                  onClick={() => setShowMerge(true)}
-                 className="btn-secondary text-xs px-3 py-1 border border-slate-500/50 text-slate-300 hover:bg-slate-500/10 flex items-center gap-1"
+                 className="btn-secondary text-xs px-3 py-1 border border-gray-400 text-gray-600 hover:bg-gray-100 flex items-center gap-1"
                >
                  <Copy size={14} /> Merge as Duplicate
                </button>
@@ -356,20 +361,20 @@ const IssueDetail = () => {
         </div>
 
         {showEscalate && (
-          <form onSubmit={handleEscalate} className="mt-6 bg-[#22272e] p-4 rounded-lg border border-orange-500/30 shadow-inner">
-            <h4 className="text-orange-400 font-bold mb-3 text-sm uppercase tracking-wider flex items-center gap-2"><AlertTriangle size={16}/> Escalation Form</h4>
+          <form onSubmit={handleEscalate} className="mt-6 bg-orange-50 p-4 rounded-lg border border-orange-200 shadow-sm">
+            <h4 className="text-orange-600 font-bold mb-3 text-sm uppercase tracking-wider flex items-center gap-2"><AlertTriangle size={16}/> Escalation Form</h4>
             <div className="space-y-3">
-              <input type="text" placeholder="Reason for escalation" required className="input-field text-sm" value={escalateData.reason} onChange={e => setEscalateData({...escalateData, reason: e.target.value})} />
-              <select className="input-field text-sm" value={escalateData.impactLevel} onChange={e => setEscalateData({...escalateData, impactLevel: e.target.value})}>
+              <input type="text" placeholder="Reason for escalation" required className="input-field text-sm bg-white border-gray-300 text-gray-900" value={escalateData.reason} onChange={e => setEscalateData({...escalateData, reason: e.target.value})} />
+              <select className="input-field text-sm bg-white border-gray-300 text-gray-900" value={escalateData.impactLevel} onChange={e => setEscalateData({...escalateData, impactLevel: e.target.value})}>
                 <option value="LOW">Low Impact</option>
                 <option value="MEDIUM">Medium Impact</option>
                 <option value="HIGH">High Impact</option>
                 <option value="CRITICAL">Critical Impact</option>
               </select>
-              <textarea placeholder="Evidence or context (logs, links, etc.)" required className="input-field text-sm" rows="2" value={escalateData.evidence} onChange={e => setEscalateData({...escalateData, evidence: e.target.value})} />
+              <textarea placeholder="Evidence or context (logs, links, etc.)" required className="input-field text-sm bg-white border-gray-300 text-gray-900" rows="2" value={escalateData.evidence} onChange={e => setEscalateData({...escalateData, evidence: e.target.value})} />
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setShowEscalate(false)} className="text-slate-400 text-sm hover:text-white">Cancel</button>
-                <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold py-1.5 px-4 rounded shadow-md">Confirm Escalation</button>
+                <button type="button" onClick={() => setShowEscalate(false)} className="text-gray-500 text-sm hover:text-gray-700">Cancel</button>
+                <button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold py-1.5 px-4 rounded shadow-sm">Confirm Escalation</button>
               </div>
             </div>
           </form>
@@ -378,19 +383,19 @@ const IssueDetail = () => {
         {/* Merge Modal */}
         {showMerge && (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                <div className="bg-surface border border-slate-700 rounded-xl shadow-2xl p-6 w-full max-w-2xl animate-in zoom-in-95">
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-2xl p-6 w-full max-w-2xl animate-in zoom-in-95">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
                         <Copy size={20} className="text-primary" /> Merge Ticket
                     </h2>
-                    <p className="text-sm text-slate-400 mb-4">Search for the primary ticket to merge this issue into. This issue will be closed as a duplicate.</p>
+                    <p className="text-sm text-gray-500 mb-4">Search for the primary ticket to merge this issue into. This issue will be closed as a duplicate.</p>
                     
                     <form onSubmit={handleSearch} className="flex gap-2 mb-6">
                         <div className="relative flex-1">
-                            <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+                            <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
                             <input 
                                 type="text" 
                                 placeholder="Search by title or keywords..." 
-                                className="input-field pl-9 text-sm w-full"
+                                className="w-full pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-md text-sm text-gray-900 focus:ring-1 focus:ring-primary focus:border-primary"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                             />
@@ -399,24 +404,24 @@ const IssueDetail = () => {
                     </form>
 
                     <div className="max-h-64 overflow-y-auto space-y-2 mb-6 pr-2">
-                        {searchResults.length === 0 && searchQuery && <p className="text-sm text-slate-500 text-center py-4">No related issues found.</p>}
+                        {searchResults.length === 0 && searchQuery && <p className="text-sm text-gray-500 text-center py-4">No related issues found.</p>}
                         {searchResults.map(res => (
                             <div 
                                 key={res.id} 
                                 onClick={() => setSelectedPrimary(res)}
-                                className={`p-3 rounded border cursor-pointer transition-colors ${selectedPrimary?.id === res.id ? 'bg-primary/20 border-primary' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
+                                className={`p-3 rounded border cursor-pointer transition-colors ${selectedPrimary?.id === res.id ? 'bg-primary/5 border-primary' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}`}
                             >
                                 <div className="flex justify-between items-start mb-1">
-                                    <h5 className="text-sm font-bold text-slate-200">#{res.id} - {res.title}</h5>
-                                    <span className="text-xs text-slate-400 bg-slate-700 px-2 py-0.5 rounded">{res.status}</span>
+                                    <h5 className="text-sm font-bold text-gray-900">#{res.id} - {res.title}</h5>
+                                    <span className="text-xs text-gray-600 bg-gray-200 px-2 py-0.5 rounded">{res.status}</span>
                                 </div>
-                                <p className="text-xs text-slate-400 line-clamp-1">{res.description}</p>
+                                <p className="text-xs text-gray-500 line-clamp-1">{res.description}</p>
                             </div>
                         ))}
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-                        <button type="button" onClick={() => setShowMerge(false)} className="btn-secondary">Cancel</button>
+                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                        <button type="button" onClick={() => setShowMerge(false)} className="btn-secondary text-gray-700 bg-gray-100 hover:bg-gray-200">Cancel</button>
                         <button 
                             onClick={handleMerge} 
                             disabled={!selectedPrimary}
@@ -432,15 +437,15 @@ const IssueDetail = () => {
         {/* Triage Modal */}
         {showTriage && (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                <div className="bg-surface border border-slate-700 rounded-xl shadow-2xl p-6 w-full max-w-lg animate-in zoom-in-95">
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <div className="bg-white border border-gray-200 rounded-xl shadow-2xl p-6 w-full max-w-lg animate-in zoom-in-95">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
                         <Edit3 size={20} className="text-primary" /> Triage Issue
                     </h2>
                     
                     <form onSubmit={handleTriageSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">Type</label>
-                            <select className="input-field text-sm" value={triageData.type} onChange={e => setTriageData({...triageData, type: e.target.value})}>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                            <select className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-1 focus:ring-primary focus:border-primary p-2" value={triageData.type} onChange={e => setTriageData({...triageData, type: e.target.value})}>
                                 <option value="BUG">BUG</option>
                                 <option value="FEATURE_REQUEST">FEATURE REQUEST</option>
                                 <option value="TASK">TASK</option>
@@ -450,8 +455,8 @@ const IssueDetail = () => {
                         </div>
                         <div className="flex gap-4">
                             <div className="flex-1">
-                                <label className="block text-xs font-medium text-slate-400 mb-1">Priority</label>
-                                <select className="input-field text-sm" value={triageData.priority} onChange={e => setTriageData({...triageData, priority: e.target.value})}>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Priority</label>
+                                <select className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-1 focus:ring-primary focus:border-primary p-2" value={triageData.priority} onChange={e => setTriageData({...triageData, priority: e.target.value})}>
                                     <option value="LOW">LOW</option>
                                     <option value="MEDIUM">MEDIUM</option>
                                     <option value="HIGH">HIGH</option>
@@ -459,8 +464,8 @@ const IssueDetail = () => {
                                 </select>
                             </div>
                             <div className="flex-1">
-                                <label className="block text-xs font-medium text-slate-400 mb-1">Severity</label>
-                                <select className="input-field text-sm" value={triageData.severity} onChange={e => setTriageData({...triageData, severity: e.target.value})}>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Severity</label>
+                                <select className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-1 focus:ring-primary focus:border-primary p-2" value={triageData.severity} onChange={e => setTriageData({...triageData, severity: e.target.value})}>
                                     <option value="S4">S4 (Lowest)</option>
                                     <option value="S3">S3</option>
                                     <option value="S2">S2</option>
@@ -469,8 +474,8 @@ const IssueDetail = () => {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">Project</label>
-                            <select className="input-field text-sm" value={triageData.projectId} onChange={e => setTriageData({...triageData, projectId: e.target.value})}>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Project</label>
+                            <select className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-1 focus:ring-primary focus:border-primary p-2" value={triageData.projectId} onChange={e => setTriageData({...triageData, projectId: e.target.value})}>
                                 <option value="">-- No Project --</option>
                                 {projects.map(p => (
                                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -478,18 +483,18 @@ const IssueDetail = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">Labels (comma separated)</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Labels (comma separated)</label>
                             <input 
                                 type="text" 
-                                className="input-field text-sm" 
+                                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-1 focus:ring-primary focus:border-primary p-2 placeholder-gray-400" 
                                 placeholder="e.g. frontend, urgent, customer_report"
                                 value={triageData.labels}
                                 onChange={e => setTriageData({...triageData, labels: e.target.value})}
                             />
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-700 mt-6">
-                            <button type="button" onClick={() => setShowTriage(false)} className="btn-secondary">Cancel</button>
+                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
+                            <button type="button" onClick={() => setShowTriage(false)} className="btn-secondary text-gray-700 bg-gray-100 hover:bg-gray-200">Cancel</button>
                             <button type="submit" className="btn-primary">Save Triage</button>
                         </div>
                     </form>
@@ -500,34 +505,34 @@ const IssueDetail = () => {
         {/* QA Verification Modal */}
         {showQA && (
             <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                <div className="bg-surface border border-slate-700 rounded-xl shadow-2xl p-6 w-full max-w-lg animate-in zoom-in-95">
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                        <ShieldCheck size={20} className="text-emerald-400" /> QA Verification
+                <div className="bg-white border border-gray-200 rounded-xl shadow-2xl p-6 w-full max-w-lg animate-in zoom-in-95">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+                        <ShieldCheck size={20} className="text-emerald-500" /> QA Verification
                     </h2>
                     
                     <form onSubmit={handleQASubmit} className="space-y-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">Test Result</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Test Result</label>
                             <select 
-                                className={`input-field text-sm font-bold ${qaData.result === 'PASS' ? 'text-emerald-400' : 'text-red-400'}`}
+                                className={`w-full bg-white border text-sm font-bold rounded focus:ring-1 p-2 ${qaData.result === 'PASS' ? 'text-emerald-600 border-emerald-300 focus:ring-emerald-500 focus:border-emerald-500' : 'text-red-600 border-red-300 focus:ring-red-500 focus:border-red-500'}`}
                                 value={qaData.result} 
                                 onChange={e => setQaData({...qaData, result: e.target.value})}
                             >
-                                <option value="PASS" className="text-emerald-400">PASS - Issue is resolved</option>
-                                <option value="FAIL" className="text-red-400">FAIL - Return to Developer</option>
+                                <option value="PASS" className="text-emerald-600">PASS - Issue is resolved</option>
+                                <option value="FAIL" className="text-red-600">FAIL - Return to Developer</option>
                             </select>
                             {qaData.result === 'FAIL' && (
-                                <p className="text-xs text-red-400 mt-1">Status will be reverted to IN PROGRESS.</p>
+                                <p className="text-xs text-red-500 mt-1">Status will be reverted to IN PROGRESS.</p>
                             )}
                             {qaData.result === 'PASS' && (
-                                <p className="text-xs text-emerald-400 mt-1">Status will be advanced to RESOLVED.</p>
+                                <p className="text-xs text-emerald-500 mt-1">Status will be advanced to RESOLVED.</p>
                             )}
                         </div>
                         
                         <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">Test Note (Required)</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Test Note (Required)</label>
                             <textarea 
-                                className="input-field text-sm" 
+                                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-1 focus:ring-primary focus:border-primary p-2 placeholder-gray-400" 
                                 rows="4"
                                 placeholder="Describe the test environment, steps taken, and observations..."
                                 value={qaData.note}
@@ -536,8 +541,8 @@ const IssueDetail = () => {
                             />
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-700 mt-6">
-                            <button type="button" onClick={() => setShowQA(false)} className="btn-secondary">Cancel</button>
+                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
+                            <button type="button" onClick={() => setShowQA(false)} className="btn-secondary text-gray-700 bg-gray-100 hover:bg-gray-200">Cancel</button>
                             <button type="submit" className={`btn-primary font-bold ${qaData.result === 'PASS' ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500' : 'bg-red-600 hover:bg-red-500 text-white border-red-500'}`}>
                                 Confirm {qaData.result}
                             </button>
@@ -549,9 +554,9 @@ const IssueDetail = () => {
       </div>
 
       {/* Attachments Section */}
-      <div className="bg-surface p-6 rounded-xl border border-slate-700 shadow-xl">
+      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold flex items-center gap-2">
+          <h3 className="text-xl font-bold flex items-center gap-2 text-gray-900">
             <Paperclip size={20} /> Attachments ({attachments.length})
           </h3>
           <div>
@@ -568,25 +573,25 @@ const IssueDetail = () => {
         </div>
         
         {attachments.length === 0 ? (
-          <p className="text-slate-500 text-sm italic">No attachments yet.</p>
+          <p className="text-gray-500 text-sm italic">No attachments yet.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {attachments.map(att => (
-              <div key={att.id} className="flex items-center justify-between p-4 bg-slate-800 border border-slate-700 rounded-lg hover:border-slate-500 transition-colors">
+              <div key={att.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 shadow-sm rounded-lg hover:border-gray-300 transition-colors">
                 <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="bg-primary/20 p-2 rounded text-primary shrink-0">
+                  <div className="bg-primary/10 p-2 rounded text-primary shrink-0">
                     <Paperclip size={20} />
                   </div>
                   <div className="truncate">
-                    <p className="text-sm font-semibold text-slate-200 truncate" title={att.fileName}>{att.fileName}</p>
-                    <p className="text-xs text-slate-400">{new Date(att.createdAt).toLocaleDateString()} by {att.uploadedBy.name}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate" title={att.fileName}>{att.fileName}</p>
+                    <p className="text-xs text-gray-500">{new Date(att.createdAt).toLocaleDateString()} by {att.uploadedBy.name}</p>
                   </div>
                 </div>
                 <a 
                   href={`http://localhost:8080${att.fileUrl}`} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="p-2 text-slate-400 hover:text-primary transition-colors shrink-0"
+                  className="p-2 text-gray-400 hover:text-primary transition-colors shrink-0"
                   title="Download/View"
                 >
                   <Download size={20} />
@@ -598,41 +603,41 @@ const IssueDetail = () => {
       </div>
 
       {/* Comments Section */}
-      <div className="bg-surface p-6 rounded-xl border border-slate-700 shadow-xl">
-        <h3 className="text-xl font-bold flex items-center gap-2 mb-6">
+      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-6">
+        <h3 className="text-xl font-bold flex items-center gap-2 mb-6 text-gray-900">
           <MessageSquare size={20} /> Comments ({comments.length})
         </h3>
         
         <div className="space-y-4 mb-6">
           {comments.map(comment => (
-            <div key={comment.id} className={`p-4 rounded border ${comment.isInternal ? 'bg-orange-950/30 border-orange-500/30' : 'bg-slate-800 border-slate-700'}`}>
-              <div className="flex justify-between items-start text-xs text-slate-400 mb-2">
+            <div key={comment.id} className={`p-4 rounded-lg border ${comment.isInternal ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
+              <div className="flex justify-between items-start text-xs text-gray-500 mb-2">
                 <div className="flex items-center gap-2">
-                    <span className={`font-bold ${comment.isInternal ? 'text-orange-400' : 'text-slate-300'}`}>{comment.user.name}</span>
-                    {comment.isInternal && <span className="bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">Internal Note</span>}
+                    <span className={`font-bold ${comment.isInternal ? 'text-orange-600' : 'text-gray-900'}`}>{comment.user.name}</span>
+                    {comment.isInternal && <span className="bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider border border-orange-200">Internal Note</span>}
                 </div>
                 <span>{new Date(comment.createdAt).toLocaleString()}</span>
               </div>
-              <p className={`text-sm whitespace-pre-wrap ${comment.isInternal ? 'text-orange-200/80' : 'text-slate-300'}`}>{comment.content}</p>
+              <p className={`text-sm whitespace-pre-wrap ${comment.isInternal ? 'text-orange-800' : 'text-gray-700'}`}>{comment.content}</p>
             </div>
           ))}
-          {comments.length === 0 && <p className="text-slate-500 text-sm">No comments yet.</p>}
+          {comments.length === 0 && <p className="text-gray-500 text-sm">No comments yet.</p>}
         </div>
 
         <form onSubmit={handleAddComment} className="mt-4">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
-            className={`input-field mb-2 ${isInternalComment ? 'border-orange-500/50 bg-orange-950/10 focus:border-orange-400 focus:ring-orange-400' : ''}`}
+            className={`w-full rounded-md border p-3 text-sm transition-colors mb-2 ${isInternalComment ? 'border-orange-300 bg-orange-50 text-orange-900 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 placeholder-orange-300' : 'border-gray-300 bg-white text-gray-900 focus:border-primary focus:ring-1 focus:ring-primary placeholder-gray-400'}`}
             rows="3"
             placeholder={isInternalComment ? "Write an internal note (visible to staff only)... Type @email to mention someone." : "Add a public comment... Type @email to mention someone."}
             required
           />
           <div className="flex justify-between items-center mt-2">
-            <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer hover:text-slate-300">
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-gray-900">
                 <input 
                     type="checkbox" 
-                    className="rounded border-slate-600 bg-slate-800 text-orange-500 focus:ring-orange-500" 
+                    className="rounded border-gray-300 bg-white text-orange-500 focus:ring-orange-500 h-4 w-4" 
                     checked={isInternalComment}
                     onChange={e => setIsInternalComment(e.target.checked)}
                 />
@@ -646,20 +651,20 @@ const IssueDetail = () => {
       </div>
 
       {/* History / Audit Trail Section */}
-      <div className="bg-surface p-6 rounded-xl border border-slate-700 shadow-xl mt-6">
-        <h3 className="text-xl font-bold flex items-center gap-2 mb-6">
+      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mt-6">
+        <h3 className="text-xl font-bold flex items-center gap-2 mb-6 text-gray-900">
           <Clock size={20} /> History & Audit Trail
         </h3>
         {activities.length === 0 ? (
-            <p className="text-slate-500 text-sm">No history available.</p>
+            <p className="text-gray-500 text-sm">No history available.</p>
         ) : (
-            <div className="relative border-l border-slate-700 ml-3 space-y-6">
+            <div className="relative border-l-2 border-gray-200 ml-3 space-y-6">
                 {activities.map(activity => (
                     <div key={activity.id} className="relative pl-6">
-                        <div className="absolute w-3 h-3 bg-primary rounded-full -left-1.5 top-1.5 ring-4 ring-surface"></div>
+                        <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1.5 ring-4 ring-white"></div>
                         <p className="text-sm">
-                            <span className="font-bold text-slate-300">{activity.user.name}</span>{' '}
-                            <span className="text-slate-400">
+                            <span className="font-bold text-gray-900">{activity.user.name}</span>{' '}
+                            <span className="text-gray-600">
                                 {activity.action === 'STATUS_CHANGE' && `changed status from ${activity.oldValue} to ${activity.newValue}`}
                                 {activity.action === 'ASSIGNEE_CHANGE' && `reassigned issue from ${activity.oldValue || 'Unassigned'} to ${activity.newValue}`}
                                 {activity.action === 'ISSUE_UPDATE' && `updated issue fields`}
@@ -670,7 +675,7 @@ const IssueDetail = () => {
                                 {activity.action === 'COMMENT_ADD' && `added a comment`}
                             </span>
                         </p>
-                        <p className="text-xs text-slate-500 mt-1">{new Date(activity.createdAt).toLocaleString()}</p>
+                        <p className="text-xs text-gray-400 mt-1">{new Date(activity.createdAt).toLocaleString()}</p>
                     </div>
                 ))}
             </div>

@@ -59,6 +59,13 @@ public class ProblemReportController {
         return ResponseEntity.ok(problemReportService.changeStatus(id, newStatus));
     }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteReport(@PathVariable Long id) {
+        problemReportService.deleteReport(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/issues")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<IssueDto> createIssueFromReport(@PathVariable Long id, @RequestBody IssueDto request) {

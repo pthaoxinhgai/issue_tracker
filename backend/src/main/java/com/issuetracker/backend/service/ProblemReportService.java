@@ -12,4 +12,5 @@ public interface ProblemReportService {
     List<ProblemReportDto> getAllReports();
     List<ProblemReportDto> getMyReports();
     ProblemReportDto changeStatus(Long reportId, ReportStatus newStatus);
+    void deleteReport(Long id);
 }

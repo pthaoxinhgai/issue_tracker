@@ -90,6 +90,13 @@ public class ProblemReportServiceImpl implements ProblemReportService {
         return mapToDto(report);
     }
 
+    @Override
+    public void deleteReport(Long id) {
+        ProblemReport report = problemReportRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Problem Report not found"));
+        problemReportRepository.delete(report);
+    }
+
     public ProblemReportDto mapToDto(ProblemReport report) {
         return ProblemReportDto.builder()
                 .id(report.getId())

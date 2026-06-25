@@ -24,7 +24,7 @@ public class IssueController {
     private final com.issuetracker.backend.service.DashboardService dashboardService;
 
     @GetMapping("/dashboard/stats")
-    @PreAuthorize("hasAnyRole('DEVELOPER', 'PRODUCT_OWNER', 'ENGINEERING_MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPPORT_STAFF', 'PRODUCT_OWNER', 'ENGINEERING_MANAGER', 'ADMIN')")
     public ResponseEntity<com.issuetracker.backend.dto.response.DashboardStatsDto> getDashboardStats() {
         return ResponseEntity.ok(dashboardService.getDashboardStats());
     }
@@ -52,20 +52,20 @@ public class IssueController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@issueSecurity.canUpdateIssue(authentication, #id)")
+    @PreAuthorize("hasAnyRole('SUPPORT_STAFF', 'PRODUCT_OWNER', 'ENGINEERING_MANAGER')")
     public ResponseEntity<IssueDto> updateIssue(@PathVariable Long id, @RequestBody IssueDto dto) {
         return ResponseEntity.ok(issueService.updateIssue(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('SUPPORT_STAFF')")
     public ResponseEntity<Void> deleteIssue(@PathVariable Long id) {
         issueService.deleteIssue(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/assign/{userId}")
-    @PreAuthorize("hasAnyRole('PRODUCT_OWNER', 'ENGINEERING_MANAGER')")
+    @PreAuthorize("hasAnyRole('PRODUCT_OWNER', 'ENGINEERING_MANAGER', 'ADMIN')")
     public ResponseEntity<IssueDto> assignIssue(@PathVariable Long id, @PathVariable Long userId) {
         return ResponseEntity.ok(issueService.assignIssue(id, userId));
     }
@@ -96,13 +96,13 @@ public class IssueController {
     }
 
     @PostMapping("/{id}/labels")
-    @PreAuthorize("@issueSecurity.canUpdateIssue(authentication, #id)")
+    @PreAuthorize("hasRole('SUPPORT_STAFF')")
     public ResponseEntity<IssueDto> addLabel(@PathVariable Long id, @RequestParam String label) {
         return ResponseEntity.ok(issueService.addLabel(id, label));
     }
 
     @DeleteMapping("/{id}/labels/{label}")
-    @PreAuthorize("@issueSecurity.canUpdateIssue(authentication, #id)")
+    @PreAuthorize("hasRole('SUPPORT_STAFF')")
     public ResponseEntity<IssueDto> removeLabel(@PathVariable Long id, @PathVariable String label) {
         return ResponseEntity.ok(issueService.removeLabel(id, label));
     }
